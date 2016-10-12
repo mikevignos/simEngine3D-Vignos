@@ -80,27 +80,15 @@ classdef body
             e0Dot = pDot(1);
             eDot = pDot(2:4);
             
-            eDotTilde = obj.skewSym(eDot);
-            aBarTilde = obj.skewSym(aBar);
+            eDotTilde = skewSym(eDot);
+            aBarTilde = skewSym(aBar);
             
             % Compute BDot matrix
             B1 = (e0Dot*eye(3,3) + eDotTilde)*aBar;
             B2 = eDotTilde*aBar' - (e0Dot*eye(3,3) + eDotTilde)*aBarTilde;
             BDot = 2*[B1 B2];
             obj.myBDot = BDot;      
-        end
-        
-        function matrix = skewSym(vector)
-            % Not sure if obj is needed here since I am not updating it.
-            x = vector(1);
-            y = vector(2);
-            z = vector(3);
-            
-            matrix = [0 -z y;
-                      z 0 -x;
-                      -y x 0];
-        end
-        
+        end       
     end
     
 end
