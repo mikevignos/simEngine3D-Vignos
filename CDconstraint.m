@@ -1,4 +1,4 @@
-classdef CDconstraint
+classdef CDconstraint < handle
     %basicConstraint.m defines the basic kinematics constraints
     
     properties
@@ -84,7 +84,7 @@ classdef CDconstraint
                 obj = obj.computeGamma(sys);
             end
             if (phiPartialRFlag == 1)
-                obj = obj.computePhiPartialR();
+                obj = obj.computePhiPartialR(sys);
             end
             if (phiPartialPFlag == 1)
                 obj = obj.computePhiPartialP(sys);
@@ -100,15 +100,25 @@ classdef CDconstraint
             ft = obj.myFt;
             t = obj.myTime;
             
-            % Compute necessary parameters for body I
-            % Orientation matrix
-            sys.myBodies{bodyI} = sys.myBodies{bodyI}.computeA();
-            Ai = sys.myBodies{bodyI}.myA;
-            ri = sys.myBodies{bodyI}.myR;
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
             
-            % Compute necessary parameters for body J. If body J is 0, this
-            % is the ground. Hardcode in parameters for this case.
-            if (bodyJ == 0)
+            % Compute necessary parameters for body I. If bodyI is
+            % the ground. Hardcode in parameters for this case.
+            % Orientation matrix
+            if (isGroundI == 1)
+                Ai = eye(3,3);
+                ri = zeros(3,1);
+            else
+                sys.myBodies{bodyI}.computeA();
+                Ai = sys.myBodies{bodyI}.myA;
+                ri = sys.myBodies{bodyI}.myR;
+            end
+            
+            % Compute necessary parameters for body J. If bodyJ is
+            % the ground. Hardcode in parameters for this case.
+            if (isGroundJ == 1)
                 Aj = eye(3,3);
                 rj = zeros(3,1);
             else
@@ -141,20 +151,30 @@ classdef CDconstraint
             t = obj.myTime;
             ftDDot = obj.myFtDDot;
             
-            % Compute necessary parameters for body I         
-            % Time derivatives of Euler parameters
-            pDotI = sys.myBodies{bodyI}.myPDot;
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
             
-            % Time derivative of B matrix
-            sys.myBodies{bodyI} = sys.myBodies{bodyI}.computeBDot(sBarIP);
-            BdotI = sys.myBodies{bodyI}.myBDot;
-                        
+            % Compute necessary parameters for body I. Check for special
+            % case when bodyI is the ground.
+            if (isGroundI == 1)
+                pDotI = zeros(4,1);
+                BdotI = zeros(3,4);
+            else
+                % Time derivatives of Euler parameters
+                pDotI = sys.myBodies{bodyI}.myPDot;
+                
+                % Time derivative of B matrix
+                sys.myBodies{bodyI} = sys.myBodies{bodyI}.computeBDot(sBarIP);
+                BdotI = sys.myBodies{bodyI}.myBDot;
+            end
+            
             % Compute necessary parameters for body J. Check for special
-            % case when bodyJ = 0, which means bodyJ is the ground.
-            if (bodyJ == 0)
+            % case when bodyJ is the ground.
+            if (isGroundJ == 1)
                 pDotJ = zeros(4,1);
                 BdotJ = zeros(3,4);
-            else              
+            else
                 % Time derivatives of Euler parameters
                 pDotJ = sys.myBodies{bodyJ}.myPDot;
                 
@@ -165,19 +185,30 @@ classdef CDconstraint
             
             %Compute right hand side of acceleration equation
             ftDDotVal = ftDDot(t);
-            gamma = coordVec'*BdotI*pDotI - coordVec*BdotJ*pDotJ + ftDDotVal;
+            gamma = coordVec'*BdotI*pDotI - coordVec'*BdotJ*pDotJ + ftDDotVal;
             obj.myGamma = gamma;
         end
-        function obj = computePhiPartialR(obj)
+        function obj = computePhiPartialR(obj, sys)
             % Extract needed attributes
             bodyJ = obj.myBodyJ;
+            bodyI = obj.myBodyI;
             coordVec = obj.myCoordVec;
             
-            % If bodyJ is the ground (i.e. bodyJ = 0), this body contributes
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian
-            if (bodyJ == 0)
+            if (isGroundJ == 1)
                 phiPartialRI = -coordVec';
                 phiPartialR = phiPartialRI;
+                
+                % If bodyI is the ground, this body contributes
+                % nothing to the Jacobian
+            elseif (isGroundI == 1)
+                phiPartialRJ = coordVec';
+                phiPartialR = phiPartialRJ;
             else
                 phiPartialRI = -coordVec';
                 phiPartialRJ = coordVec';
@@ -193,24 +224,38 @@ classdef CDconstraint
             sBarJQ = obj.mysBarJQ;
             coordVec = obj.myCoordVec;
             
-            % If bodyJ is the ground (i.e. bodyJ = 0), this body contributes
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian
-            if (bodyJ == 0);
-                % Compute B(p, sBar) for bodyI and body J
-                sys.myBodies{bodyI} = sys.myBodies{bodyI}.computeB(sBarIP);
-                BmatrixI = sys.myBodies{bodyI}.myBmatrix;
+            if (isGroundJ == 1);
+                % Compute B(p, sBar) for bodyI
+                sys.myBodies{bodyI}.computeB(sBarIP);
+                BmatrixI = sys.myBodies{bodyI}.myB;
                 
                 % Compute phiPartialP
                 phiPartialPI = -coordVec'*BmatrixI;
                 phiPartialP = phiPartialPI;
                 
+                % If bodyI is the ground, this body contributes
+            % nothing to the Jacobian
+            elseif (isGroundI == 1);
+                % Compute B(p, sBar) for bodyJ
+                sys.myBodies{bodyJ}.computeB(sBarJQ);
+                BmatrixJ = sys.myBodies{bodyJ}.myB;
+                
+                % Compute phiPartialP
+                phiPartialPJ = coordVec'*BmatrixJ;
+                phiPartialP = phiPartialPJ;
             else
                 % Compute B(p, sBar) for bodyI and body J
-                sys.myBodies{bodyI} = sys.myBodies{bodyI}.computeB(sBarIP);
-                BmatrixI = sys.myBodies{bodyI}.myBmatrix;
+                sys.myBodies{bodyI}.computeB(sBarIP);
+                BmatrixI = sys.myBodies{bodyI}.myB;
                 
-                sys.myBodies{bodyJ} = sys.myBodies{bodyJ}.computeB(sBarJQ);
-                BmatrixJ = sys.myBodies{bodyJ}.myBmatrix;
+                sys.myBodies{bodyJ}.computeB(sBarJQ);
+                BmatrixJ = sys.myBodies{bodyJ}.myB;
                 
                 % Compute phiPartialP
                 phiPartialPI = -coordVec'*BmatrixI;
