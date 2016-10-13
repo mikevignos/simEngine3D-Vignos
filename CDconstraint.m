@@ -47,10 +47,9 @@ classdef CDconstraint < handle
             % properties of this class.
             %
             % Function inputs:
-            % allBodies : struct
-            %   Data structure containing all of the bodies in the system.
-            %   Each body in this structure should be defined using
-            %   the body class.
+            % sys : class
+            %   multibodySystem class. This class contains all of the info
+            %   about the bodies in your multibody system.
             %
             % t : double
             %   Value of current time step
@@ -105,7 +104,7 @@ classdef CDconstraint < handle
             isGroundJ = sys.myBodies{bodyJ}.myIsGround;
             
             % Compute necessary parameters for body I. If bodyI is
-            % the ground. Hardcode in parameters for this case.
+            % the ground, hardcode in parameters for this case.
             % Orientation matrix
             if (isGroundI == 1)
                 Ai = eye(3,3);

@@ -46,10 +46,9 @@ classdef DP1constraint < handle
             % properties of this class.
             %
             % Function inputs:
-            % allBodies : struct
-            %   Data structure containing all of the bodies in the sys.
-            %   Each body in this structure should be defined using
-            %   the body class.
+            % sys : class
+            %   multibodySystem class. This class contains all of the info
+            %   about the bodies in your multibody system.
             %
             % t : double
             %   Value of current time step
