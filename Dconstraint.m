@@ -1,15 +1,14 @@
-classdef CDconstraint < handle
+classdef Dconstraint < handle
     %basicConstraint.m defines the basic kinematics constraints
     
     properties
         myConstraintName; % String. Name of the constraint.
-        myConstraintType = 'CD'; % String. Type of basic constraint. Currently only DP1 or CD
+        myConstraintType = 'D'; % String. Type of basic constraint. Currently only DP1 or CD
         myBodyI; % First body in constraint
         myBodyJ; % Second body in constraint
-        myCoordVec; % Coordinate that is being constraint (e.g. for x constraint, myCoordVec = [1 0 0]')
         mysBarIP; % Point on body I being constrained in body I reference frame
         mysBarJQ; % Point on body J being constrained in body J reference frame
-        myFt; % Function representing value of constraint
+        myFt; % Function representing the square of the distance between points mysBarIP and mysBarJQ
         myFtDot; % Function representing first time derivative of f(t)
         myFtDDot; % Function representing second time derivative of f(t)
         myTime; % Value of current time step
@@ -23,10 +22,10 @@ classdef CDconstraint < handle
     end
     
     methods
-        function obj = CDconstraint(bodyI, bodyJ, coordVec, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName)
+        function obj = Dconstraint(bodyI, bodyJ, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName)
             % Store name sent in by user
-            if nargin < 9
-                obj.myConstraintName = 'CD Constraint';
+            if nargin < 8
+                obj.myConstraintName = 'D Constraint';
             else
                 obj.myConstraintName = constraintName;
             end
@@ -34,15 +33,14 @@ classdef CDconstraint < handle
             % Store attributes.
             obj.myBodyI = bodyI;
             obj.myBodyJ = bodyJ;
-            obj.myCoordVec = coordVec;
             obj.mysBarIP = sBarIP;
             obj.mysBarJQ = sBarJQ;
             obj.myFt = ft;
             obj.myFtDot = ftDot;
             obj.myFtDDot = ftDDot;
         end
-        function obj = computeCDconstraint(obj, sys, t, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag)
-            % Computes necessary quantities for CD constraint
+        function obj = computeDconstraint(obj, sys, t, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag)
+            % Computes necessary quantities for D constraint
             % Possible quantities to compute are described in the
             % properties of this class.
             %
@@ -95,16 +93,18 @@ classdef CDconstraint < handle
             bodyJ = obj.myBodyJ;
             sBarIP = obj.mysBarIP;
             sBarJQ = obj.mysBarJQ;
-            coordVec = obj.myCoordVec;
             ft = obj.myFt;
             t = obj.myTime;
+
+            % Compute dij
+            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
             
-            % Compute necessary parameters
-            dij = simEngine3DUtilities.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            % f(t) already represents the square of the distance as a 
+            % function of time
+            ftVal = ft(t);
             
             % Compute phi
-            ftVal = ft(t);
-            phi = coordVec'*dij - ftVal;
+            phi = dij'*dij - ftVal;
             obj.myPhi = phi;
         end
         function obj = computeNu(obj)
@@ -112,7 +112,7 @@ classdef CDconstraint < handle
             ftDot = obj.myFtDot;
             t = obj.myTime;
             
-            % Compute nu
+            % Compute nu.
             nu = ftDot(t);
             obj.myNu = nu;
         end
@@ -122,7 +122,6 @@ classdef CDconstraint < handle
             bodyJ = obj.myBodyJ;
             sBarIP = obj.mysBarIP;
             sBarJQ = obj.mysBarJQ;
-            coordVec = obj.myCoordVec;
             t = obj.myTime;
             ftDDot = obj.myFtDDot;
             
@@ -133,40 +132,48 @@ classdef CDconstraint < handle
             
             % Time derivative of B matrix
             sys.myBodies{bodyI}.computeBDot(sBarIP);
-            BdotI = sys.myBodies{bodyI}.myBDot;
+            BdotSBarIP = sys.myBodies{bodyI}.myBDot;
             
             sys.myBodies{bodyJ}.computeBDot(sBarJQ);
-            BdotJ = sys.myBodies{bodyJ}.myBDot;
+            BdotSBarJQ = sys.myBodies{bodyJ}.myBDot;
             
+            % Vector and time derivative of vector
+            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            dijDot = simEngine3DUtilites.computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+
             %Compute right hand side of acceleration equation
             ftDDotVal = ftDDot(t);
-            gamma = coordVec'*BdotI*pDotI - coordVec'*BdotJ*pDotJ + ftDDotVal;
+            gamma = -2*dij'*BdotSBarJQ*pDotJ + 2*dij'*BdotSBarIP*pDotI - 2*(dijDot'*dijDot) + ftDDotVal;
             obj.myGamma = gamma;
         end
         function obj = computePhiPartialR(obj, sys)
             % Extract needed attributes
-            bodyJ = obj.myBodyJ;
             bodyI = obj.myBodyI;
-            coordVec = obj.myCoordVec;
+            bodyJ = obj.myBodyJ;
+            sBarIP = obj.mysBarIP;
+            sBarJQ = obj.mysBarJQ;
             
             % Check if either body is the ground
             isGroundI = sys.myBodies{bodyI}.myIsGround;
             isGroundJ = sys.myBodies{bodyJ}.myIsGround;
             
+            % Compute dij because you need it for all cases
+            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            
             % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian
             if (isGroundJ == 1)
-                phiPartialRI = -coordVec';
+                phiPartialRI = -2*dij';
                 phiPartialR = phiPartialRI;
                 
                 % If bodyI is the ground, this body contributes
                 % nothing to the Jacobian
             elseif (isGroundI == 1)
-                phiPartialRJ = coordVec';
+                phiPartialRJ = 2*dij';
                 phiPartialR = phiPartialRJ;
             else
-                phiPartialRI = -coordVec';
-                phiPartialRJ = coordVec';
+                phiPartialRI = -2*dij';
+                phiPartialRJ = 2*dij';
                 phiPartialR = [phiPartialRI phiPartialRJ];
             end
             obj.myPhiPartialR = phiPartialR;
@@ -177,21 +184,23 @@ classdef CDconstraint < handle
             bodyJ = obj.myBodyJ;
             sBarIP = obj.mysBarIP;
             sBarJQ = obj.mysBarJQ;
-            coordVec = obj.myCoordVec;
             
             % Check if either body is the ground
             isGroundI = sys.myBodies{bodyI}.myIsGround;
             isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % Compute dij because you need it for all cases
+            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
             
             % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian
             if (isGroundJ == 1);
                 % Compute B(p, sBar) for bodyI
                 sys.myBodies{bodyI}.computeB(sBarIP);
-                BmatrixI = sys.myBodies{bodyI}.myB;
+                BmatrixSBarIP = sys.myBodies{bodyI}.myB;
                 
                 % Compute phiPartialP
-                phiPartialPI = -coordVec'*BmatrixI;
+                phiPartialPI = -2*dij'*BmatrixSBarIP;
                 phiPartialP = phiPartialPI;
                 
                 % If bodyI is the ground, this body contributes
@@ -199,22 +208,22 @@ classdef CDconstraint < handle
             elseif (isGroundI == 1);
                 % Compute B(p, sBar) for bodyJ
                 sys.myBodies{bodyJ}.computeB(sBarJQ);
-                BmatrixJ = sys.myBodies{bodyJ}.myB;
+                BmatrixSBarJQ = sys.myBodies{bodyJ}.myB;
                 
                 % Compute phiPartialP
-                phiPartialPJ = coordVec'*BmatrixJ;
+                phiPartialPJ = 2*dij'*BmatrixSBarJQ;
                 phiPartialP = phiPartialPJ;
             else
                 % Compute B(p, sBar) for bodyI and body J
                 sys.myBodies{bodyI}.computeB(sBarIP);
-                BmatrixI = sys.myBodies{bodyI}.myB;
+                BmatrixSBarIP = sys.myBodies{bodyI}.myB;
                 
                 sys.myBodies{bodyJ}.computeB(sBarJQ);
-                BmatrixJ = sys.myBodies{bodyJ}.myB;
+                BmatrixSBarJQ = sys.myBodies{bodyJ}.myB;
                 
                 % Compute phiPartialP
-                phiPartialPI = -coordVec'*BmatrixI;
-                phiPartialPJ = coordVec'*BmatrixJ;
+                phiPartialPI = -2*dij'*BmatrixSBarIP;
+                phiPartialPJ = 2*dij'*BmatrixSBarJQ;
                 phiPartialP = [phiPartialPI phiPartialPJ];
             end
             

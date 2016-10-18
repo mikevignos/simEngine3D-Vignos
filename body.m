@@ -98,27 +98,35 @@ classdef body < handle
             
             % Set properties of vector
             obj.myVectors{nVecs + 1}.name = vectorName;
-            obj.myVectors{nVecs + 1}.aBar = aBar;           
+            obj.myVectors{nVecs + 1}.aBar = aBar;
         end
         function obj = computeA(obj)
-            % Compute the rotation matrix for this body in the current
-            % orientation
-            p = obj.myP;
-            e0 = p(1);
-            e1 = p(2); 
-            e2 = p(3);
-            e3 = p(4);
+            % If the make is the ground, then make sure the orientation
+            % matrix never changes
+            isGround = obj.myIsGround;
+            if (isGround == 1)
+                Afinal = eye(3,3);
+            else
+                % Compute the orientation matrix for this body in the current
+                % orientation
+                p = obj.myP;
+                e0 = p(1);
+                e1 = p(2);
+                e2 = p(3);
+                e3 = p(4);
+                
+                A(1,1) = e0^2 + e1^2 - 0.5;
+                A(1,2) = e1*e2 - e0*e3;
+                A(1,3) = e1*e3 + e0*e2;
+                A(2,1) = e1*e2 + e0*e3;
+                A(2,2) = e0^2 + e2^2 - 0.5;
+                A(2,3) = e2*e3 - e0*e1;
+                A(3,1) = e1*e3 - e0*e2;
+                A(3,2) = e2*e3 + e0*e1;
+                A(3,3) = e0^2 + e3^2 - 0.5;
+                Afinal = 2*A;
+            end
             
-            A(1,1) = e0^2 + e1^2 - 0.5;
-            A(1,2) = e1*e2 - e0*e3;
-            A(1,3) = e1*e3 + e0*e2;
-            A(2,1) = e1*e2 + e0*e3;
-            A(2,2) = e0^2 + e2^2 - 0.5;
-            A(2,3) = e2*e3 - e0*e1;
-            A(3,1) = e1*e3 - e0*e2;
-            A(3,2) = e2*e3 + e0*e1;
-            A(3,3) = e0^2 + e3^2 - 0.5;
-            Afinal = 2*A;
             
             obj.myA = Afinal;
         end
@@ -126,8 +134,8 @@ classdef body < handle
             p = obj.myP;
             e0 = p(1);
             e = p(2:4);
-            eTilde = skewSym(e);
-            aBarTilde = skewSym(aBar);
+            eTilde = simEngine3DUtilities.skewSym(e);
+            aBarTilde = simEngine3DUtilities.skewSym(aBar);
             
             % Create B matrix
             B1 = (e0*eye(3,3) + eTilde)*aBar;
@@ -141,8 +149,8 @@ classdef body < handle
             e0Dot = pDot(1);
             eDot = pDot(2:4);
             
-            eDotTilde = skewSym(eDot);
-            aBarTilde = skewSym(aBar);
+            eDotTilde = simEngine3DUtilities.skewSym(eDot);
+            aBarTilde = simEngine3DUtilities.skewSym(aBar);
             
             % Compute BDot matrix
             B1 = (e0Dot*eye(3,3) + eDotTilde)*aBar;

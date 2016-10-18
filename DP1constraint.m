@@ -97,28 +97,13 @@ classdef DP1constraint < handle
             ft = obj.myFt;
             t = obj.myTime;
             
-            % Check if either body is the ground
-            isGroundI = sys.myBodies{bodyI}.myIsGround;
-            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
-                        
-            % Compute necessary parameters for body I. If body I is the
-            % the ground. Hardcode in parameters for this case.
+            % Compute necessary parameters
             % Orientation matrix
-            if (isGroundI == 1)
-                Ai = eye(3,3);
-            else
-                sys.myBodies{bodyI}.computeA();
-                Ai = sys.myBodies{bodyI}.myA;
-            end
+            sys.myBodies{bodyI}.computeA();
+            Ai = sys.myBodies{bodyI}.myA;
             
-            % Compute necessary parameters for body J. If body J is 0, this
-            % is the ground. Hardcode in parameters for this case.
-            if (isGroundJ == 1)
-                Aj = eye(3,3);         
-            else
-                sys.myBodies{bodyJ}.computeA();
-                Aj = sys.myBodies{bodyJ}.myA;
-            end
+            sys.myBodies{bodyJ}.computeA();
+            Aj = sys.myBodies{bodyJ}.myA;
             
             % Compute phi
             ftVal = ft(t);
@@ -143,68 +128,39 @@ classdef DP1constraint < handle
             t = obj.myTime;
             ftDDot = obj.myFtDDot;
             
-            % Check if either body is the ground. 
-            isGroundI = sys.myBodies{bodyI}.myIsGround;
-            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            % Compute necessary parameters
+            % Orientation matrix
+            sys.myBodies{bodyI}.computeA();
+            Ai = sys.myBodies{bodyI}.myA;
             
-            % Compute necessary parameters for body I. Check for special
-            % case when bodyI is the ground.
-            if (isGroundI == 1)
-                Ai = eye(3,3);
-                pDotI = zeros(4,1);
-                BdotI = zeros(3,4);
-                ai = Ai*aBarI;
-                aDotI = zeros(4,1); % This is all zeros because pDotI is all zeros.
-            else
-                % Orientation matrix
-                sys.myBodies{bodyI}.computeA();
-                Ai = sys.myBodies{bodyI}.myA;
-                
-                % Time derivatives of Euler parameters
-                pDotI = sys.myBodies{bodyI}.myPDot;
-                
-                % B matrix
-                sys.myBodies{bodyI}.computeB(aBarI);
-                BmatrixI = sys.myBodies{bodyI}.myB;
-                
-                % Time derivative of B matrix
-                sys.myBodies{bodyI}.computeBDot(aBarI);
-                BdotI = sys.myBodies{bodyI}.myBDot;
-                
-                % a and aDot
-                ai = Ai*aBarI;
-                aDotI = BmatrixI*pDotI;
-            end
+            sys.myBodies{bodyJ}.computeA();
+            Aj = sys.myBodies{bodyJ}.myA;
             
-            % Compute necessary parameters for body J. Check for special
-            % case when bodyJ = 0, which means bodyJ is the ground.
-            if (isGroundJ == 1)
-                Aj = eye(3,3);
-                pDotJ = zeros(4,1);
-                BdotJ = zeros(3,4);
-                aj = Aj*aBarJ;
-                aDotJ = zeros(4,1); % This is all zeros because pDotJ is all zeros.
-            else
-                % Orientation matrix
-                sys.myBodies{bodyJ}.computeA();
-                Aj = sys.myBodies{bodyJ}.myA;
-                
-                % Time derivatives of Euler parameters
-                pDotJ = sys.myBodies{bodyJ}.myPDot;
-                
-                % Compute B(p, aBar)
-                sys.myBodies{bodyJ}.computeB(aBarJ);
-                BmatrixJ = sys.myBodies{bodyJ}.myB;
-                
-                % Compute B(pDot, aBar)
-                sys.myBodies{bodyJ}.computeBDot(aBarJ);
-                BdotJ = sys.myBodies{bodyJ}.myBDot;
-                
-                % Compute a and aDot for both bodies
-                aj = Aj*aBarJ;
-                aDotJ = BmatrixJ*pDotJ;
-            end
+            % Time derivatives of Euler parameters
+            pDotI = sys.myBodies{bodyI}.myPDot;
+            pDotJ = sys.myBodies{bodyJ}.myPDot;
             
+            % B matrix
+            sys.myBodies{bodyI}.computeB(aBarI);
+            BmatrixI = sys.myBodies{bodyI}.myB;
+            
+            sys.myBodies{bodyJ}.computeB(aBarJ);
+            BmatrixJ = sys.myBodies{bodyJ}.myB;
+            
+            % Time derivative of B matrix
+            sys.myBodies{bodyI}.computeBDot(aBarI);
+            BdotI = sys.myBodies{bodyI}.myBDot;
+            
+            sys.myBodies{bodyJ}.computeBDot(aBarJ);
+            BdotJ = sys.myBodies{bodyJ}.myBDot;
+            
+            % a and aDot
+            ai = Ai*aBarI;
+            aDotI = BmatrixI*pDotI;
+            
+            aj = Aj*aBarJ;
+            aDotJ = BmatrixJ*pDotJ;
+
             %Compute right hand side of acceleration equation
             gamma = -ai'*BdotJ*pDotJ - aj'*BdotI*pDotI - 2*aDotI'*aDotJ + ftDDot(t);
             obj.myGamma = gamma;
@@ -249,9 +205,9 @@ classdef DP1constraint < handle
             if (isGroundJ == 1);
                 % Compute orientation matrix, A, for bodyJ
                 Aj = eye(3,3);
-                                
+                
                 % Compute B(p, aBar) for bodyI
-                sys.myBodies{bodyI} = sys.myBodies{bodyI}.computeB(aBarI);
+                sys.myBodies{bodyI}.computeB(aBarI);
                 BmatrixI = sys.myBodies{bodyI}.myB;
                 
                 % Compute a for bodyI
@@ -261,11 +217,11 @@ classdef DP1constraint < handle
                 phiPartialPI = aj'*BmatrixI;
                 phiPartialP = phiPartialPI;
                 
-                 % Special case when body I is ground
+                % Special case when body I is ground
             elseif (isGroundI == 1);
                 % Compute orientation matrix, A, for bodyI
                 Ai = eye(3,3);
-                                
+                
                 % Compute B(p, aBar) for bodyI
                 sys.myBodies{bodyJ}.computeB(aBarJ);
                 BmatrixJ = sys.myBodies{bodyJ}.myB;
