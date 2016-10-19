@@ -2,11 +2,7 @@ classdef simEngine3DUtilities
     %simEngine3DUtilities.m 
     % This class provides a collection of functions that are commonly used
     % within simEngine3D.
-    
-    properties
-    end
-    
-    methods
+    methods (Static)
         function [ matrix ] = skewSym( vector )
             x = vector(1);
             y = vector(2);
@@ -15,6 +11,22 @@ classdef simEngine3DUtilities
             matrix = [0 -z y;
                 z 0 -x;
                 -y x 0];
+        end
+        function A = p2A(p) 
+            % Orientation matrix A from euler parameters p
+            %
+            % Function input:
+            %   p = [e0;e1;e2;e3] euler parameters
+            %
+            % output:
+            %   A = [3x3] orientation matrix
+            e0 = p(1);
+            e1 = p(2);
+            e2 = p(3);
+            e3 = p(4);
+            A = 2*[e0^2+e1^2-0.5, e1*e2-e0*e3, e1*e3+e0*e2;
+                e1*e2+e0*e3, e0^2+e2^2-0.5, e2*e3-e0*e1;
+                e1*e3-e0*e2, e2*e3+e0*e1, e0^2+e3^2-0.5];
         end
         function dij = computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ)
             % Computes a vector (dij) from point sBarIP to sBarJQ in the
@@ -49,9 +61,11 @@ classdef simEngine3DUtilities
             % Extract the current position and orientation matrix for each
             % body
             ri = sys.myBodies{bodyI}.myR;
+            sys.myBodies{bodyI}.computeA;
             Ai = sys.myBodies{bodyI}.myA;
             
             rj = sys.myBodies{bodyJ}.myR;
+            sys.myBodies{bodyJ}.computeA;
             Aj = sys.myBodies{bodyJ}.myA;
             
             % Compute dij
@@ -97,8 +111,10 @@ classdef simEngine3DUtilities
             pjDot = sys.myBodies{bodyJ}.myPDot;
             
             % Compute B-matrix for each body
-            BmatrixI = sys.myBodies{bodyI}.computeB(sBarIP);
-            BmatrixJ = sys.myBodies{bodyJ}.computeB(sBarJQ);
+            sys.myBodies{bodyI}.computeB(sBarIP);
+            BmatrixI = sys.myBodies{bodyI}.myB;
+            sys.myBodies{bodyJ}.computeB(sBarJQ);
+            BmatrixJ = sys.myBodies{bodyJ}.myB;
             
             % Compute dijDot
             dijDot = rjDot + BmatrixJ*pjDot - riDot - BmatrixI*piDot;

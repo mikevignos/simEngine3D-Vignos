@@ -21,17 +21,27 @@ classdef body < handle
         myBDot; % Time derivative of B matrix
     end
     
+    properties (Dependent)
+        myNumPoints; % Number of points defined on body
+        myNumVectors; % Number of vectors defined on body
+    end
+    
     methods
-        function obj = body(bodyNumber, bodyType, isGround, mass, length)
+        function obj = body(bodyNumber, bodyType, isGround, mass, bodyLength)
             % Set parameters that are sent in
             obj.myBodyNumber = bodyNumber;
             obj.myBodyType = bodyType;
             obj.myIsGround = isGround;
             obj.myMass = mass;
-            obj.myLength = length;
+            obj.myLength = bodyLength;
             
-            % NEED TO WRITE. Compute polar moment of inertia for body
-            
+            % Compute polar moment of inertia for body
+            if strcmp(bodyType,'bar')
+                J = (mass*bodyLength^2)/12;
+            else
+                J = 0;
+            end
+            obj.myJ = J;
             
             
         end
@@ -158,6 +168,16 @@ classdef body < handle
             BDot = 2*[B1 B2];
             obj.myBDot = BDot;      
         end       
+    end
+    
+    % Methods for dependent properties
+    methods
+        function myNumPoints = get.myNumPoints(obj)
+            myNumPoints = length(obj.myPoints);
+        end
+        function myNumVectors = get.myNumVectors(obj)
+            myNumVectors = length(obj.myVectors);
+        end
     end
     
 end

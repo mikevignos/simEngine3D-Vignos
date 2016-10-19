@@ -8,6 +8,11 @@ classdef multibodySystem < handle
         myConstraints; % Structure containing all of the constraints in the system
     end
     
+    properties (Dependent)
+        myNumBodies; % Number of bodies in the system
+        myNumConstraints; % Number of constraints in the system
+    end
+    
     methods
         function obj = multibodySystem()
         end
@@ -22,17 +27,21 @@ classdef multibodySystem < handle
             newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength);
             obj.myBodies{bodyNumber} = newBody;
         end
+        function plot(obj,vargin)
+            % Override Matlab's plot command to plot the multibodySystem
+            plot.plotSystem(obj,vargin)
+        end
         function obj = addPoint(obj, bodyNumber, sBar, pointName)
             % Adds a point to this body. This function is helpful for
             % storing points that will be used in constraints.
-            % 
+            %
             % Function inputs:
             % bodyNumber: double
             %   Number of body in this system.
             %
             % sBar : 3x1 vector
             %   Location of point in body reference frame
-            %   
+            %
             % pointName : string
             %   Name for this point. This is not a necessary input
             %
@@ -42,14 +51,14 @@ classdef multibodySystem < handle
         function obj = addVector(obj, bodyNumber, aBar, vectorName)
             % Adds a point to this body. This function is helpful for
             % storing points that will be used in constraints.
-            % 
+            %
             % Function inputs:
             % bodyNumber: double
             %   Number of body in this system.
             %
             % aBar : 3x1 vector
             %   Vector in body reference frame
-            %   
+            %
             % pointName : string
             %   Name for this point. This is not a necessary input
             %
@@ -58,7 +67,7 @@ classdef multibodySystem < handle
         end
         function obj = updateSystemState(obj, rMatrix, rDotMatrix, pMatrix, pDotMatrix, time)
             % Update position, orientation, and time derivatives of each
-            % for each body at a specific time step. 
+            % for each body at a specific time step.
             %
             % Function inputs:
             % rMatrix : 3 x N matrix, where N is the number of bodies
@@ -66,17 +75,17 @@ classdef multibodySystem < handle
             %   the global reference frame
             %
             % rDotMatrix : 3 x N matrix, where N is the number of bodies
-            %   Matrix containing the current time derivative of the 3D 
+            %   Matrix containing the current time derivative of the 3D
             %   positon of each body in the global reference frame
             %
             % pMatrix : 4 x N matrix, where N is the number of bodies
             %   Matrix containing the current Euler parameters of each body
             %
             % pDotMatrix : 4 x N matrix, where N is the number of bodies
-            %   Matrix containing the current time derivative of the 
+            %   Matrix containing the current time derivative of the
             %   Euler parameters of each body
             
-            nBodies = length(obj.myBodies);
+            nBodies = obj.myNumBodies;
             for iB = 1:nBodies
                 p = pMatrix(:,iB);
                 pDot = pDotMatrix(:,iB);
@@ -90,16 +99,32 @@ classdef multibodySystem < handle
             newConstraint = DP1constraint(bodyI, bodyJ, aBarI, aBarJ, ft, ftDot, ftDDot, constraintName);
             
             % Current number of constraints
-            nConst = length(obj.myConstraints);
-            obj.myConstraints{nConst + 1} = newConstraint;            
+            nConst = obj.myNumConstraints;
+            obj.myConstraints{nConst + 1} = newConstraint;
+        end
+        function obj = addDP2constraint(obj,bodyI, bodyJ, aBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName)
+            % Add a DP2 constraint between two bodies in the system
+            newConstraint = DP2constraint(bodyI, bodyJ, aBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName);
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            obj.myConstraints{nConst + 1} = newConstraint;
         end
         function obj = addCDconstraint(obj, bodyI, bodyJ, coordVec, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName)
             % Add a CD constraint between two bodies in the system
             newConstraint = CDconstraint(bodyI, bodyJ, coordVec, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName);
             
             % Current number of constraints
-            nConst = length(obj.myConstraints);
-            obj.myConstraints{nConst + 1} = newConstraint;    
+            nConst = obj.myNumConstraints;
+            obj.myConstraints{nConst + 1} = newConstraint;
+        end
+        function obj = addDconstraint(obj, bodyI, bodyJ, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName)
+            % Add a CD constraint between two bodies in the system
+            newConstraint = Dconstraint(bodyI, bodyJ, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName);
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            obj.myConstraints{nConst + 1} = newConstraint;
         end
         function obj = computeConstraintProperties(obj, constraintNumber, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag)
             % Determine type of constraint
@@ -110,11 +135,28 @@ classdef multibodySystem < handle
                 case 'DP1'
                     obj.myConstraints{constraintNumber}.computeDP1constraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
                     
+                case 'DP2'
+                    obj.myConstraints{constraintNumber}.computeDP2constraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
+                    
+                case 'D'
+                    obj.myConstraints{constraintNumber}.computeDconstraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
+                    
                 case 'CD'
                     obj.myConstraints{constraintNumber}.computeCDconstraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
             end
         end
         
+    end
+     % Methods block with no attributes
+     methods
+        function myNumBodies = get.myNumBodies(obj) 
+            % Calculate number of bodies in system
+            myNumBodies = length(obj.myBodies);
+        end
+        function myNumConstraints = get.myNumConstraints(obj)
+            % Calculate number of constraints in system
+            myNumConstraints = length(obj.myConstraints);
+        end
     end
     
 end

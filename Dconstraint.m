@@ -97,7 +97,7 @@ classdef Dconstraint < handle
             t = obj.myTime;
 
             % Compute dij
-            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            dij = simEngine3DUtilities.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
             
             % f(t) already represents the square of the distance as a 
             % function of time
@@ -138,8 +138,8 @@ classdef Dconstraint < handle
             BdotSBarJQ = sys.myBodies{bodyJ}.myBDot;
             
             % Vector and time derivative of vector
-            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
-            dijDot = simEngine3DUtilites.computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            dij = simEngine3DUtilities.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            dijDot = simEngine3DUtilities.computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ);
 
             %Compute right hand side of acceleration equation
             ftDDotVal = ftDDot(t);
@@ -158,7 +158,7 @@ classdef Dconstraint < handle
             isGroundJ = sys.myBodies{bodyJ}.myIsGround;
             
             % Compute dij because you need it for all cases
-            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            dij = simEngine3DUtilities.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
             
             % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian
@@ -190,7 +190,7 @@ classdef Dconstraint < handle
             isGroundJ = sys.myBodies{bodyJ}.myIsGround;
             
             % Compute dij because you need it for all cases
-            dij = simEngine3DUtilites.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            dij = simEngine3DUtilities.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
             
             % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian

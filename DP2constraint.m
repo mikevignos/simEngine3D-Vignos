@@ -210,6 +210,7 @@ classdef DP2constraint < handle
             bodyJ = obj.myBodyJ;
             sBarIP = obj.mysBarIP;
             sBarJQ = obj.mysBarJQ;
+            aBarI = obj.myaBarI;
             
             % Check if either body is the ground
             isGroundI = sys.myBodies{bodyI}.myIsGround;
