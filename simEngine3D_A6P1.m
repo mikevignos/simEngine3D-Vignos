@@ -40,27 +40,29 @@ sys.updateSystemState( rInitial, rDotInitial, pInitial, pDotInitial, t);
 
 %% Define constraints between bodies
 % D constraint
-bodyI = 1;
-bodyJ = 2;
-sBarIP = [1 0 0]';
-sBarJQ = [1 0 0]';
-ft = @(t) 0.5^2;
-ftDot  = @(t) 0;
-ftDDot  = @(t) 0;
-constraintName = 'Bar1 and Bar2 D Constraint';
-sys.addDconstraint(bodyI, bodyJ, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName);
+a.bodyI = 1;
+a.bodyJ = 2;
+a.sBarIP = [1 0 0]';
+a.sBarJQ = [1 0 0]';
+a.ft = @(t) 0.5^2;
+a.ftDot  = @(t) 0;
+a.ftDDot  = @(t) 0;
+a.constraintName = 'Bar1 and Bar2 D Constraint';
+isKinematic = 1;
+sys.addBasicConstraint(isKinematic,'d',a);
 
 % DP2 constraint
-bodyI = 1;
-bodyJ = 2;
-aBarI = [1 0 0]';
-sBarIP = [1 0 0]';
-sBarJQ = [1 0 0]';
-ft = @(t) 0;
-ftDot  = @(t) 0;
-ftDDot  = @(t) 0;
-constraintName = 'P and Q distance constraint';
-sys.addDP2constraint(bodyI, bodyJ, aBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, constraintName);
+a.bodyI = 1;
+a.bodyJ = 2;
+a.aBarI = [1 0 0]';
+a.sBarIP = [1 0 0]';
+a.sBarJQ = [1 0 0]';
+a.ft = @(t) 0;
+a.ftDot  = @(t) 0;
+a.ftDDot  = @(t) 0;
+a.constraintName = 'P and Q distance constraint';
+isKinematic = 1;
+sys.addBasicConstraint(isKinematic,'dp2',a);
 
 %% Plot the current position of the system
 sys.plot(1);

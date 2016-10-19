@@ -4,6 +4,7 @@ classdef Dconstraint < handle
     properties
         myConstraintName; % String. Name of the constraint.
         myConstraintType = 'D'; % String. Type of basic constraint. Currently only DP1 or CD
+        myIsKinematic; % Flag for if the constraint is a kinematic (1) or driving (0) constraint
         myBodyI; % First body in constraint
         myBodyJ; % Second body in constraint
         mysBarIP; % Point on body I being constrained in body I reference frame
