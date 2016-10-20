@@ -14,6 +14,8 @@ classdef multibodySystem < handle
         myPhiP; % Vector of Euler parameter normalization constraints
         myPhiFull; % Full constraint matrix. Made up of combination of kinematic, driving, and Euler parameter normalization constraints.
         myPhiFullJacobian; % Jacobian of full constraint matrix.
+        myNu; % RHS of velocity equation for entire multibody system
+        myGamma; % RHS of acceleration equation for entire multibody system
         myTime; % Current time within system.
     end
     
@@ -237,6 +239,79 @@ classdef multibodySystem < handle
             phiFullJacobian = [phiFullPartialR phiFullPartialP];
             obj.myPhiFullJacobian = phiFullJacobian;
             
+        end
+        function obj = computeNu(obj)
+            % Compute RHS of velocity equation for the entire system.
+            
+            % Seed nu. The number of inputs into nu should be equal to the
+            % number of total constraints (kinematic + driving + Euler
+            % parameter normalization)
+            nKDconst = obj.myNumConstraints;
+            nBodies = obj.myNumBodies;
+            if (obj.myBodyIsGround == 1) % If one of the bodies is the ground, it does not contibute to nu
+                nuLength = nKDconst + nBodies - 1;
+            else
+                nuLength = nKDconst + nBodies;
+            end
+            nuTotal = zeros(nuLength,1);
+            
+            % Loop through each kinematic and driving constraint and compute nu.
+            % The rest of the inputs into nu (for the Euler parameter
+            % normalization constraints) should remain zero.
+            time = obj.myTime;
+            for iC = 1:nKDconst
+                nuFlag = 1;
+                obj.computeConstraintProperties(iC, time, 0, nuFlag, 0, 0, 0);
+                nuTotal(iC,:) = obj.myConstraints{iC}.myNu;            
+            end
+            
+            % Update system level Nu
+            obj.myNu = nuTotal;
+        end
+        function obj = computeGamma(obj)
+            % Compute RHS of acceleration equation for entire multibody
+            % system
+            
+            % Seed gamma. The length of gamma is equal to the total number
+            % of constraints (kinematic + driving + Euler param norm).
+            % Remember, the ground does not contribute to the Euler param
+            % norm constraint.
+            nKDconst = obj.myNumConstraints;
+            nBodies = obj.myNumBodies;
+            if (obj.myBodyIsGround == 1)
+                gammaLength = nKDconst + nBodies - 1;
+            else
+                gammaLength = nKDconst + nBodies;
+            end
+            gammaTotal = zeros(gammaLength,1);
+            
+            % Loop through each constraint and comute gamma
+            for iC = 1:nKDconst
+                gammaFlag = 1;
+                obj.computeConstraintProperties(iC, time, 0, 0, gammaFlag, 0, 0);
+                gammaTotal(iC,:) = obj.myConstraints{iC}.myGamma;
+            end
+            
+            % Loop through each body and compute gamma. If the body is the
+            % ground, skip it.
+            if (obj.myBodyIsGround == 1)
+                iP = 1;
+                for iB = 1:nBodies
+                    if (obj.myBodies{iB}.myIsGround == 0)
+                        pDot = obj.myBodies{iB}.myPDot;
+                        gammaTotal((nKDconst + iP),:) = -2*(pDot'*pDot);
+                        iP = iP + 1;
+                    end
+                end
+            else
+                for iB = 1:nBodies
+                    pDot = obj.myBodies{iB}.myPDot;
+                    gammaTotal((nKDconst + iB),:) = -2*(pDot'*pDot);
+                end
+            end
+            
+            % Update system level gamma
+            obj.myGamma = gammaTotal;           
         end
         function plot(obj,vargin)
             % Override Matlab's plot command to plot the multibodySystem
