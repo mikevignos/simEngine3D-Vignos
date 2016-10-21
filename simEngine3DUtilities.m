@@ -28,6 +28,28 @@ classdef simEngine3DUtilities
                 e1*e2+e0*e3, e0^2+e2^2-0.5, e2*e3-e0*e1;
                 e1*e3-e0*e2, e2*e3+e0*e1, e0^2+e3^2-0.5];
         end
+        function p = A2p(A)
+            % Compute Euler parameters from current orientation matrix
+            %
+            % input:
+            %   A = [3x3] orientation matrix
+            % output:
+            %   p = [e0;e1;e2;e3] euler parameters
+
+            e0 = sqrt((trace(A)+1)/4); % the sign of e0 is arbitrary
+            
+            if e0 ~= 0
+                e1 = (A(3,2)-A(2,3))/(4*e0);
+                e2 = (A(1,3)-A(3,1))/(4*e0);
+                e3 = (A(2,1)-A(1,2))/(4*e0);
+
+            elseif e0 == 0
+                disp('Not implemented yet, see slide 25 (9/21/16) or page 341')
+                return
+            end
+            
+            p =[e0;e1;e2;e3];
+        end
         function dij = computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ)
             % Computes a vector (dij) from point sBarIP to sBarJQ in the
             % global reference frame. 
@@ -118,6 +140,17 @@ classdef simEngine3DUtilities
             
             % Compute dijDot
             dijDot = rjDot + BmatrixJ*pjDot - riDot - BmatrixI*piDot;
+        end
+        function B = computeBmatrix(p, aBar)
+            e0 = p(1);
+            e = p(2:4);
+            eTilde = simEngine3DUtilities.skewSym(e);
+            aBarTilde = simEngine3DUtilities.skewSym(aBar);
+            
+            % Create B matrix
+            B1 = (e0*eye(3,3) + eTilde)*aBar;
+            B2 = e*aBar' - (e0*eye(3,3) + eTilde)*aBarTilde;
+            B = 2*[B1 B2];
         end
         
     end

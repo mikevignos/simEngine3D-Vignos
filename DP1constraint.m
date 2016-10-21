@@ -74,19 +74,19 @@ classdef DP1constraint < handle
             
             % Compute desired parameters
             if (phiFlag == 1)
-                obj = obj.computePhi(sys);
+                obj.computePhi(sys);
             end
             if(nuFlag == 1)
-                obj = obj.computeNu();
+                obj.computeNu();
             end
             if(gammaFlag == 1)
-                obj = obj.computeGamma(sys);
+                obj.computeGamma(sys);
             end
             if(phiPartialRFlag == 1)
-                obj = obj.computePhiPartialR(sys);
+                obj.computePhiPartialR(sys);
             end
             if(phiPartialPFlag == 1)
-                obj = obj.computePhiPartialP(sys);
+                obj.computePhiPartialP(sys);
             end
         end
         function obj = computePhi(obj,sys)
@@ -205,7 +205,8 @@ classdef DP1constraint < handle
             % nothing to the Jacobian
             if (isGroundJ == 1);
                 % Compute orientation matrix, A, for bodyJ
-                Aj = eye(3,3);
+                sys.myBodies{bodyJ}.computeA();
+                Aj = sys.myBodies{bodyJ}.myA;
                 
                 % Compute B(p, aBar) for bodyI
                 sys.myBodies{bodyI}.computeB(aBarI);

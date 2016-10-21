@@ -11,19 +11,29 @@ classdef body < handle
         myJ; % Polar moment of inertia for body
         myPoints; % Structure containing the important points on the body.
         myVectors; % Structure containing important vectors on the body
-        myP = [1; 0; 0; 0]; % Euler parameters of local reference frame for given body
-        myPDot = [0; 0; 0; 0]; % Time derivative of Euler paramters
-        myR = [0; 0; 0]; % Location of body in global reference frame
-        myRDot = [0; 0; 0]; % Time derivation of body location (i.e. components of body velocity)
+        myP; % Euler parameters of local reference frame for given body
+        myPDot; % Time derivative of Euler paramters
+        myPDDot; % Second time derivative of Euler parameters
+        myR; % Location of body in global reference frame
+        myRDot; % Time derivation of body location (i.e. components of body velocity)
+        myRDDot; % Second time derivative of body location (i.e. components of body acceleration)
         myTime; % Current time step at which p, pDot, r, and rDot were last set.
         myA; % Orientation matrix for current euler paramters
         myB; % Current B matrix for body
         myBDot; % Time derivative of B matrix
+        myTimeTotal; % Vector containing all time steps traversed in analysis
+        myRTotal = zeros(3,1); % Position of body across all time steps
+        myRDotTotal = zeros(3,1); % Velocity of body across all time steps
+        myRDDotTotal = zeros(3,1); % Acceleration of body across all time steps
+        myPTotal = zeros(4,1); % Euler parameters of body across all time steps
+        myPDotTotal = zeros(4,1); % First time derivate of euler parameters of body across all time steps
+        myPDDotTotal = zeros(4,1); % Second time derivate of euler parameters of body across all time steps
     end
     
     properties (Dependent)
         myNumPoints; % Number of points defined on body
         myNumVectors; % Number of vectors defined on body
+        myNumTimeSteps; % Total number of time steps 
     end
     
     methods
@@ -45,12 +55,15 @@ classdef body < handle
             
             
         end
-        function obj = updateBody(obj, p, pDot, r, rDot, time)
+        
+        function obj = updateBody(obj, p, pDot, pDDot, r, rDot, rDDot, time)
             % Update the current orientation and position of the given body
             obj.myP = p;
             obj.myR = r;          
             obj.myPDot = pDot;
             obj.myRDot = rDot;
+            obj.myPDDot = pDDot;
+            obj.myRDDot = rDDot;
             obj.myTime = time;
         end
         function obj = addPoint(obj, sBar, pointName)
@@ -177,6 +190,9 @@ classdef body < handle
         end
         function myNumVectors = get.myNumVectors(obj)
             myNumVectors = length(obj.myVectors);
+        end
+        function myNumTimeSteps = get.myNumTimeSteps(obj)
+            myNumTimeSteps = length(obj.myTimeTotal);
         end
     end
     

@@ -9,6 +9,12 @@ classdef multibodySystem < handle
         myNumKinematicConstraints; % Number of kinematic constraints in the system
         myNumDrivingConstraints; % Number of driving constraints in the system
         myBodyIsGround; % Flag indicating if one of the bodies in the system is the ground.
+        myR; % Position of all bodies in system
+        myRDot; % Velocity of all bodies in system
+        myRDDot; % Acceleration of all bodies in system
+        myP; % Euler parameters of all bodies in system
+        myPDot; % First time derivative of euler parameters of all bodies in system
+        myPDDot; % Second time derivative of euler parameters of all bodies in system
         myPhiK; % Vector of kinematic constraints
         myPhiD; % Vector of driving constraints
         myPhiP; % Vector of Euler parameter normalization constraints
@@ -50,6 +56,323 @@ classdef multibodySystem < handle
             % Add a body to the system
             newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength);
             obj.myBodies{bodyNumber} = newBody;
+        end
+        function obj = kinematicsAnalysis(obj, startTime, endTime, timeStep)
+            % Perform kinematics analysis with this multibody system for
+            % the given time interval.
+            %
+            % Function inputs:
+            % startTime : double
+            %   Start time for kinematics analysis in seconds.
+            %
+            % endTime : double
+            %   End time for kinematics analysis in seconds.
+            %
+            % timeStep : double
+            %   Desired time step for kinematics analysis in seconds.
+            
+            time = startTime:timeStep:endTime;
+            
+            for iT = 1:length(time)
+                t = time(iT);
+                
+                % If it is not the first time-step, we must use
+                % Newton-Raphson to solve for q. If it is the first
+                % time-step, q is given as an initial condition.
+                if (t ~= startTime)
+                    obj.computeQ(t);
+                end
+                
+                % Compute qDot
+                obj.computeQDot(t);
+                
+                % Compute gamma and qDDot
+                obj.computeQDDot(t);
+                
+                % Store the position and orientation information for the
+                % current time step
+                obj.storeSystemState();   
+                
+                disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
+            end
+        end
+        function obj = storeSystemState(obj)
+            % Store the current state of each body
+            
+            % Extract matrices that contain the state info for all bodies.
+            r = obj.myR;
+            rDot = obj.myRDot;
+            rDDot = obj.myRDDot;
+            p = obj.myP;
+            pDot = obj.myPDot;
+            pDDot = obj.myPDDot;
+            time = obj.myTime;
+            
+            % Loop through each body. Store the info for each body within
+            % its data structure. The resulting data structures will have
+            % time and state info across all time steps with each column
+            % representing a different time step
+            nBodies = obj.myNumBodies;
+            for iB = 1:nBodies
+                nTimeSteps = obj.myBodies{iB}.myNumTimeSteps;
+                obj.myBodies{iB}.myTimeTotal(nTimeSteps + 1) = time;
+                obj.myBodies{iB}.myRTotal(:,nTimeSteps + 1) = r(:,iB);
+                obj.myBodies{iB}.myRDotTotal(:,nTimeSteps + 1) = rDot(:,iB);
+                obj.myBodies{iB}.myRDDotTotal(:,nTimeSteps + 1) = rDDot(:,iB);
+                obj.myBodies{iB}.myPTotal(:,nTimeSteps + 1) = p(:,iB);
+                obj.myBodies{iB}.myPDotTotal(:,nTimeSteps + 1) = pDot(:,iB);
+                obj.myBodies{iB}.myPDDotTotal(:,nTimeSteps + 1) = pDDot(:,iB);
+            end
+        end
+        function [phiFull, phiFullJacobian] = NRfunction(obj, q)
+            % Update the state of the system based off the q that is sent
+            % in
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                rTemp = q(1:3*nBodies);
+                pTemp = q((3*nBodies + 1):7*nBodies);
+                
+                rGround = [0 0 0]';
+                pGround = [1 0 0 0]';
+                
+                rNew = [rGround; rTemp];
+                pNew = [pGround; pTemp];
+            else
+                nBodies = obj.myNumBodies;
+                rNew = q(1:3*nBodies);
+                pNew = q((3*nBodies + 1):7*nBodies);
+            end
+            
+            % Reshape into a matrix
+            rMatrix = reshape(rNew,[3 obj.myNumBodies]);
+            pMatrix = reshape(pNew, [4 obj.myNumBodies]);
+            
+            % Update the position.
+            obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], obj.myTime);
+            
+            % Now that the system state is updated, recompute phi and the
+            % jacobian of phi
+            obj.computePhiFull();
+            obj.computePhiFullJacobian();
+            phiFull = obj.myPhiFull;
+            phiFullJacobian = obj.myPhiFullJacobian;
+        end
+        function obj = computeQ(obj,time)
+            % Compute q for all bodies in the system using the
+            % Newton-Raphson method. This function must be used at all time
+            % steps after the first time step.
+            
+            % Start with intial guess of q
+            rInit = obj.myR;
+            pInit = obj.myP;
+            
+            % Reshape the intial guess of q so it is a vector and remove
+            % the body that represents the ground, if one exists.
+            if (obj.myBodyIsGround == 1)
+                % By convention, body 1 is always the ground, if there is a
+                % ground.
+                rInit(:,1) = [];
+                pInit(:,1) = [];
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            rInitVec = reshape(rInit,[3*nBodies 1]);
+            pInitVec = reshape(pInit,[4*nBodies 1]);
+            qGuess = [rInitVec; pInitVec];
+                        
+            
+            % Use Newton-Raphson method to compute q
+            maxIter = 50;
+            tol = 1e-9;
+            
+            iter = 1;
+            while iter < maxIter
+                % Compute phiFullJacobian and phiFull
+                obj.computePhiFull();
+                obj.computePhiFullJacobian();
+                
+                phiFull = obj.myPhiFull;
+                phiFullJacobian = obj.myPhiFullJacobian;
+                
+                % Compute the correction factor
+                correction = phiFullJacobian\phiFull;
+                
+                % Update guess based off correction factor
+                qNew = qGuess - correction;
+                qGuess = qNew;
+                
+                % Update the system state so that the new position is qNew.
+                % If one of the bodies is the
+                % ground you need to put r and p for the ground back into
+                % the results, just so we maintain the correct number of total
+                % bodies in the system.
+                if (obj.myBodyIsGround == 1)
+                    nBodies = obj.myNumBodies - 1;
+                    rTemp = qNew(1:3*nBodies);
+                    pTemp = qNew((3*nBodies + 1):7*nBodies);
+                    
+                    rGround = [0 0 0]';
+                    pGround = [1 0 0 0]';
+                    
+                    rNew = [rGround; rTemp];
+                    pNew = [pGround; pTemp];
+                else
+                    nBodies = obj.myNumBodies;
+                    rNew = qNew(1:3*nBodies);
+                    pNew = qNew((3*nBodies + 1):7*nBodies);
+                end
+
+                % Reshape into a matrix
+                rMatrix = reshape(rNew,[3 obj.myNumBodies]);
+                pMatrix = reshape(pNew, [4 obj.myNumBodies]);
+                
+                % Update the position. If this is the last time through the
+                % loop, this will allow us to update the system to the
+                % final solution.
+                obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], time);
+                
+                % Check to see if the tolerance for convergence has been
+                % reached. If it has, break from this loop.
+                if (norm(correction) < tol)
+                    break
+                end
+                
+                % Update iteration count
+                iter = iter + 1;
+            end 
+            
+            % Check to see if theta is satisfied.......
+            
+
+%             % Perform newton-raphson using fsolve
+%             opt = optimset('fsolve');
+%             opt.GradObj = 'on';
+%             qFinal = fsolve(@(q)obj.NRfunction(q),qGuess);
+%             
+%             % Update the system state with the final position
+%             % If one of the bodies is the
+%             % ground you need to put r and p for the ground back into
+%             % the results, just so we maintain the correct number of total
+%             % bodies in the system.
+%             if (obj.myBodyIsGround == 1)
+%                 nBodies = obj.myNumBodies - 1;
+%                 rTemp = qFinal(1:3*nBodies);
+%                 pTemp = qFinal((3*nBodies + 1):7*nBodies);
+%                 
+%                 rGround = [0 0 0]';
+%                 pGround = [1 0 0 0]';
+%                 
+%                 rNew = [rGround; rTemp];
+%                 pNew = [pGround; pTemp];
+%             else
+%                 nBodies = obj.myNumBodies;
+%                 rNew = qFinal(1:3*nBodies);
+%                 pNew = qFinal((3*nBodies + 1):7*nBodies);
+%             end
+%             
+%             % Reshape into a matrix
+%             rMatrix = reshape(rNew,[3 obj.myNumBodies]);
+%             pMatrix = reshape(pNew, [4 obj.myNumBodies]);
+%             
+%             % Update the position. If this is the last time through the
+%             % loop, this will allow us to update the system to the
+%             % final solution.
+%             obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], time);
+%                 
+%                 %%%%%
+
+        end
+        
+        function obj = computeQDot(obj, time)
+            % Compute the velocity and time derivative of the Euler
+            % parameters for all bodies in the system.
+            obj.myTime = time;
+            
+            % Compute RHS of velocity equation
+            obj.computeNu();
+            nu = obj.myNu;
+            
+            % Compute Jacobian of phi
+            obj.computePhiFullJacobian();
+            phiFullJacobian = obj.myPhiFullJacobian();
+            
+            % Solve for qDot
+            qDot = phiFullJacobian\nu;
+            
+            % Parse qDot into rDot and pDot. If one of the bodies is the
+            % ground you need to put rDot and pDot for the ground back into
+            % the results, just so we maintain the correct number of total
+            % bodies in the system.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                rDotTemp = qDot(1:3*nBodies);
+                pDotTemp = qDot((3*nBodies + 1):7*nBodies);
+                
+                rDotGround = [0 0 0]';
+                pDotGround = [0 0 0 0]';
+                
+                rDot = [rDotGround; rDotTemp];
+                pDot = [pDotGround; pDotTemp];
+            else
+                nBodies = obj.myNumBodies;
+                rDot = qDot(1:3*nBodies);
+                pDot = qDot((3*nBodies + 1):7*nBodies);
+            end
+
+            % Reshape into a matrix
+            rDotMatrix = reshape(rDot,[3 obj.myNumBodies]);
+            pDotMatrix = reshape(pDot, [4 obj.myNumBodies]);
+            
+            % Update the velocities
+            obj.updateSystemState([], rDotMatrix, [], [], pDotMatrix, [], time);        
+        end
+        function obj = computeQDDot(obj, time)
+            % Compute acceleration and second time derivative of Euler
+            % parameters for all bodies in system
+            
+            % Store time
+            obj.myTime = time;
+            
+            % Compute RHS of acceleration equation
+            obj.computeGamma();
+            gamma = obj.myGamma;
+            
+            % Do not waste time computing Jacobian of phi again. It was
+            % already computed for the velocity analysis so just grab the
+            % previously computed Jacobian.
+            phiFullJacobian = obj.myPhiFullJacobian();
+            
+            % Solve for qDDot
+            qDDot = phiFullJacobian\gamma;
+            
+            % Parse qDDot into rDDot and pDDot. If one of the bodies is the
+            % ground you need to put rDDot and pDDot for the ground back into
+            % the results, just so we maintain the correct number of total
+            % bodies in the system.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                rDDotTemp = qDDot(1:3*nBodies);
+                pDDotTemp = qDDot((3*nBodies + 1):7*nBodies);
+                
+                rDDotGround = [0 0 0]';
+                pDDotGround = [0 0 0 0]';
+                
+                rDDot = [rDDotGround; rDDotTemp];
+                pDDot = [pDDotGround; pDDotTemp];
+            else
+                nBodies = obj.myNumBodies;
+                rDDot = qDDot(1:3*nBodies);
+                pDDot = qDDot((3*nBodies + 1):7*nBodies);
+            end
+            
+            
+            % Reshape into a matrix
+            rDDotMatrix = reshape(rDDot,[3 obj.myNumBodies]);
+            pDDotMatrix = reshape(pDDot, [4 obj.myNumBodies]);
+            
+            % Update the velocities
+            obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);   
         end
         function obj = computePhiFull(obj)
             % Compute each component of phiFull
@@ -94,12 +417,14 @@ classdef multibodySystem < handle
             
             nConst = obj.myNumConstraints;
             
+            iD = 1;
             for iC = 1:nConst
                 if (obj.myConstraints{iC}.myIsKinematic == 0)
                     time = obj.myTime;
                     phiFlag = 1;
                     obj.computeConstraintProperties(iC, time, phiFlag, 0, 0, 0, 0);
-                    phiD(iC,:) = obj.myConstraints{iC}.myPhi;
+                    phiD(iD,:) = obj.myConstraints{iC}.myPhi;
+                    iD = iD + 1;
                 end
             end
             
@@ -170,8 +495,8 @@ classdef multibodySystem < handle
                 phiPartialRFlag = 1;
                 phiPartialPFlag = 1;
                 obj.computeConstraintProperties(iC, time, 0, 0, 0, phiPartialRFlag, phiPartialPFlag);
-                phiPartialR = obj.myConstraints(iC).myPhiPartialR;
-                phiPartialP = obj.myConstraints(iC).myPhiPartialP;
+                phiPartialR = obj.myConstraints{iC}.myPhiPartialR;
+                phiPartialP = obj.myConstraints{iC}.myPhiPartialP;
                 
                 % If one of the bodies in the system is the ground adjust
                 % the body numbers accordingly.
@@ -182,26 +507,26 @@ classdef multibodySystem < handle
                         % populate the Jacobian. This only works because I
                         % am forcing the ground to be body 1.
                         phiFullPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiPartialR;
-                        phiFullPartialP(iC,(4*(bodyJ-1) - 2):4*(bodyJ-1)) = phiPartialP;
+                        phiFullPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiPartialP;
                         
                     elseif (obj.myBodies{bodyJ}.myIsGround == 1)
                         % Only care about bodyI in this case.
                         % Need to decrease body number by 1 to properly
-                        % populate the Jacobian. 
+                        % populate the Jacobian.
                         phiFullPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiPartialR;
-                        phiFullPartialP(iC,(4*(bodyI-1) - 2):4*(bodyI-1)) = phiPartialP;
+                        phiFullPartialP(iC,(4*(bodyI-1) - 3):4*(bodyI-1)) = phiPartialP;
                         
                     else
                         % Include both bodyI and bodyJ in this case because
                         % neither is the ground, but still decrease body
                         % number by 1.
                         % Populate the partial derivative w.r.t. position.
-                    phiFullPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiPartialR(1:3);
-                    phiFullPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiPartialR(4:6);
-                    
-                    % Populate the partial derivative w.r.t. orientation.
-                    phiFullPartialP(iC,(4*(bodyI-1) - 3):4*(bodyI-1)) = phiPartialP(1:4);
-                    phiFullPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiPartialP(5:8);
+                        phiFullPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiPartialR(1:3);
+                        phiFullPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiPartialR(4:6);
+                        
+                        % Populate the partial derivative w.r.t. orientation.
+                        phiFullPartialP(iC,(4*(bodyI-1) - 3):4*(bodyI-1)) = phiPartialP(1:4);
+                        phiFullPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiPartialP(5:8);
                         
                     end
                 else
@@ -272,6 +597,7 @@ classdef multibodySystem < handle
             % Compute RHS of acceleration equation for entire multibody
             % system
             
+            time = obj.myTime;
             % Seed gamma. The length of gamma is equal to the total number
             % of constraints (kinematic + driving + Euler param norm).
             % Remember, the ground does not contribute to the Euler param
@@ -351,7 +677,7 @@ classdef multibodySystem < handle
             
             obj.myBodies{bodyNumber}.addVector(aBar, vectorName);
         end
-        function obj = updateSystemState(obj, rMatrix, rDotMatrix, pMatrix, pDotMatrix, time)
+        function obj = updateSystemState(obj, rMatrix, rDotMatrix, rDDotMatrix, pMatrix, pDotMatrix, pDDotMatrix, time)
             % Update position, orientation, and time derivatives of each
             % for each body at a specific time step.
             %
@@ -371,13 +697,65 @@ classdef multibodySystem < handle
             %   Matrix containing the current time derivative of the
             %   Euler parameters of each body
             
+            % Update system variables if they are not empty. If they are
+            % empty it means those variables are not being updated at this
+            % time.
+            if ~isempty(rMatrix)
+                obj.myR = rMatrix;
+            end
+            if ~isempty(rDotMatrix)
+                obj.myRDot = rDotMatrix;
+            end
+            if ~isempty(rDDotMatrix)
+                obj.myRDDot = rDDotMatrix;
+            end
+            if ~isempty(pMatrix)
+                obj.myP = pMatrix;
+            end
+            if ~isempty(pDotMatrix)
+                obj.myPDot = pDotMatrix;
+            end
+            if ~isempty(pDDotMatrix)
+                obj.myPDDot = pDDotMatrix;
+            end
+            obj.myTime = time;
+            
+            % Update individual bodies. If the desired matrix is empty,
+            % this means that specific value is not being updated at the
+            % moment. Just keep this values the same.
             nBodies = obj.myNumBodies;
             for iB = 1:nBodies
-                p = pMatrix(:,iB);
-                pDot = pDotMatrix(:,iB);
-                r = rMatrix(:,iB);
-                rDot = rDotMatrix(:,iB);
-                obj.myBodies{iB}.updateBody(p, pDot, r, rDot, time);
+                if ~isempty(pMatrix)
+                    p = pMatrix(:,iB);
+                else
+                    p = obj.myBodies{iB}.myP;
+                end
+                if ~isempty(pDotMatrix)
+                    pDot = pDotMatrix(:,iB);
+                else
+                    pDot = obj.myBodies{iB}.myPDot;
+                end
+                if ~isempty(pDDotMatrix)
+                    pDDot = pDDotMatrix(:,iB);
+                else
+                    pDDot = obj.myBodies{iB}.myPDDot;
+                end
+                if ~isempty(rMatrix)
+                    r = rMatrix(:,iB);
+                else
+                    r = obj.myBodies{iB}.myR;
+                end
+                if ~isempty(rDotMatrix)
+                    rDot = rDotMatrix(:,iB);
+                else
+                    rDot = obj.myBodies{iB}.myRDot;
+                end
+                if ~isempty(rDDotMatrix)
+                    rDDot = rDDotMatrix(:,iB);
+                else
+                    rDDot = obj.myBodies{iB}.myRDDot;
+                end
+                obj.myBodies{iB}.updateBody(p, pDot, pDDot, r, rDot, rDDot, time);
             end
         end
         function obj = addBasicConstraint(obj,isKinematic,constraintType,attributes)

@@ -38,7 +38,7 @@ pDotInitial = zeros(4,2);
 t = 0;
 sys.updateSystemState( rInitial, rDotInitial, pInitial, pDotInitial, t);
 
-%% Define constraints between bodies
+%% Add constraints
 % D constraint
 a.bodyI = 1;
 a.bodyJ = 2;
