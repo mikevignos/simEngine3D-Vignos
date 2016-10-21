@@ -90,14 +90,6 @@ classdef multibodySystem < handle
                     disp('WARNING: Solution approaching singular configuration!!!');
                 end
                 
-                % Check if theta is negative. If it is, adjust the sign of ry 
-%                 theta = pi/4*cos(2*t);
-%                 if theta < 0
-%                     yVal = obj.myR(2,2);
-%                     obj.myR(2,2) = -yVal;
-%                     obj.myBodies{2}.myR(2) = -yVal;
-%                 end
-                
                 % Compute qDot
                 obj.computeQDot(t);
                 
@@ -114,10 +106,12 @@ classdef multibodySystem < handle
                 % and its derivative for the driving constraint based off
                 % this value.
 %                 phiDP1Driver = obj.myConstraints{6}.myPhi;
-%                 if abs(theta) < 0.2
-%                     obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4+2*pi));
-%                     obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4+2*pi))/2);
-%                     obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin(( pi*cos(2*t))/4+2*pi) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4+2*pi))/4);
+%                 theta = pi/4*cos(2*t);
+%                 if abs(theta) < 0.1
+%                  
+%                         obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4) + 0.1);
+%                         obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4))/2);
+%                         obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin(( pi*cos(2*t))/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4))/4);
 %                     
 %                 else
 %                     obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4));
