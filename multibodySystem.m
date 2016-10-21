@@ -57,7 +57,7 @@ classdef multibodySystem < handle
             newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength);
             obj.myBodies{bodyNumber} = newBody;
         end
-        function obj = kinematicsAnalysis(obj, startTime, endTime, timeStep)
+        function obj = kinematicsAnalysis(obj, startTime, endTime, timeStep, displayFlag)
             % Perform kinematics analysis with this multibody system for
             % the given time interval.
             %
@@ -85,10 +85,10 @@ classdef multibodySystem < handle
                 
                 % Check Jacobian at this point. Throw a warning if it is
                 % close to singular
-                phiFullJacobian = obj.myPhiFullJacobian;
-                if norm(phiFullJacobian) < 10^-6
-                    disp('WARNING: Solution approaching singular configuration!!!');
-                end
+%                 phiFullJacobian = obj.myPhiFullJacobian;
+%                 if norm(phiFullJacobian) < 10^-12
+%                     disp('WARNING: Solution approaching singular configuration!!!');
+%                 end
                 
                 % Compute qDot
                 obj.computeQDot(t);
@@ -98,26 +98,11 @@ classdef multibodySystem < handle
                 
                 % Store the position and orientation information for the
                 % current time step
-                obj.storeSystemState();   
+                obj.storeSystemState();
                 
-                disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
-                
-                % Check if theta(t) is close to 0. Modulate f(t)
-                % and its derivative for the driving constraint based off
-                % this value.
-%                 phiDP1Driver = obj.myConstraints{6}.myPhi;
-%                 theta = pi/4*cos(2*t);
-%                 if abs(theta) < 0.1
-%                  
-%                         obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4+pi/4));
-%                         obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4+pi/4))/2);
-%                         obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin(( pi*cos(2*t))/4+pi/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4+pi/4))/4);
-%                     
-%                 else
-%                     obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4));
-%                     obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4))/2);
-%                     obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin((pi*cos(2*t))/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4))/4);
-%                 end
+                if (displayFlag == 1)
+                    disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
+                end
             end
         end
         function obj = storeSystemState(obj)

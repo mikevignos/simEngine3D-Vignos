@@ -102,20 +102,20 @@ sys.addBasicConstraint(isKinematic,'dp1',a5);
 a6.bodyJ = 1;
 a6.bodyI = 2;
 a6.aBarJ = [0 0 -1]';
-a6.aBarI = [1 0 0]';
-a6.ft = @(t)cos((pi*cos(2*t))/4);
-a6.ftDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4))/2);
-a6.ftDDot = @(t)(pi*cos(2*t)*sin((pi*cos(2*t))/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4))/4);
+a6.aBarI = [0 1 0]';
+a6.ft = @(t)cos((pi*cos(2*t))/4 + pi/2);
+a6.ftDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4 + pi/2))/2);
+a6.ftDDot = @(t)(pi*cos(2*t)*sin((pi*cos(2*t))/4 + pi/2) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4 + pi/2))/4);
 a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Perform kinematics analysis
-if 1
+if 0
     timeStart = 0;
     timeEnd = 10;
     timeStep = 10^-3;
-    sys.kinematicsAnalysis(timeStart, timeEnd, timeStep);
+    sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, 0);
     % Save the multibody system since it contains the results
     save('multibodySystem_A6P3.mat','sys');
     
