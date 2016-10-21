@@ -109,9 +109,9 @@ classdef multibodySystem < handle
 %                 theta = pi/4*cos(2*t);
 %                 if abs(theta) < 0.1
 %                  
-%                         obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4) + 0.1);
-%                         obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4))/2);
-%                         obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin(( pi*cos(2*t))/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4))/4);
+%                         obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4+pi/4));
+%                         obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4+pi/4))/2);
+%                         obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin(( pi*cos(2*t))/4+pi/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4+pi/4))/4);
 %                     
 %                 else
 %                     obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4));
