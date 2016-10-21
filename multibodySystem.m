@@ -83,6 +83,21 @@ classdef multibodySystem < handle
                     obj.computeQ(t);
                 end
                 
+                % Check Jacobian at this point. Throw a warning if it is
+                % close to singular
+                phiFullJacobian = obj.myPhiFullJacobian;
+                if norm(phiFullJacobian) < 10^-6
+                    disp('WARNING: Solution approaching singular configuration!!!');
+                end
+                
+                % Check if theta is negative. If it is, adjust the sign of ry 
+%                 theta = pi/4*cos(2*t);
+%                 if theta < 0
+%                     yVal = obj.myR(2,2);
+%                     obj.myR(2,2) = -yVal;
+%                     obj.myBodies{2}.myR(2) = -yVal;
+%                 end
+                
                 % Compute qDot
                 obj.computeQDot(t);
                 
@@ -94,6 +109,21 @@ classdef multibodySystem < handle
                 obj.storeSystemState();   
                 
                 disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
+                
+                % Check if theta(t) is close to 0. Modulate f(t)
+                % and its derivative for the driving constraint based off
+                % this value.
+%                 phiDP1Driver = obj.myConstraints{6}.myPhi;
+%                 if abs(theta) < 0.2
+%                     obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4+2*pi));
+%                     obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4+2*pi))/2);
+%                     obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin(( pi*cos(2*t))/4+2*pi) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4+2*pi))/4);
+%                     
+%                 else
+%                     obj.myConstraints{6}.myFt = @(t)(cos((pi*cos(2*t))/4));
+%                     obj.myConstraints{6}.myFtDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4))/2);
+%                     obj.myConstraints{6}.myFtDDot = @(t)(pi*cos(2*t)*sin((pi*cos(2*t))/4) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4))/4);
+%                 end
             end
         end
         function obj = storeSystemState(obj)

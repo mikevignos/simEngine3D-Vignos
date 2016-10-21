@@ -113,7 +113,7 @@ sys.addBasicConstraint(isKinematic,'dp1',a6);
 %% Perform kinematics analysis
 if 1
     timeStart = 0;
-    timeEnd = 1;
+    timeEnd = 10;
     timeStep = 10^-3;
     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep);
     % Save the multibody system since it contains the results
@@ -162,6 +162,18 @@ plot(time,rDDotOprime(1,:))
 plot(time,rDDotOprime(2,:))
 plot(time,rDDotOprime(3,:))
 title('Acceleration of point O-prime')
+xlabel('Time (sec)')
+ylabel('Acceleration (m/s^2)')
+legend('X','Y','Z')
+hold off
+
+figure
+hold on
+plot(time,rDDotOprime(1,:))
+plot(time,rDDotOprime(2,:))
+plot(time,rDDotOprime(3,:))
+axis([0 10 -6 6])
+title('Acceleration of point O-prime -- Zoomed In')
 xlabel('Time (sec)')
 ylabel('Acceleration (m/s^2)')
 legend('X','Y','Z')
