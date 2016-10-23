@@ -13,8 +13,13 @@ isGround1 = 1;
 sys.addBody(1, 'ground', isGround1, mass1,length1);
 
 % Add body2
-mass2 = 10;
-length2 = 4;
+% Compute mass of the bar.
+length2 = 4; % meters
+density = 7800; %kg/m^3
+area = 0.05 * 0.05; % m^2
+volume = length2*area; % m^3
+mass2 = density*volume;
+
 isGround2 = 0;
 sys.addBody(2, 'bar', isGround2, mass2,length2);
 
@@ -99,6 +104,7 @@ a5.constraintName = 'DP1 b/w Z and zPrime';
 sys.addBasicConstraint(isKinematic,'dp1',a5);
 
 %% Add driving constraint to model
+% DP1 constraint between -Z and y'
 a6.bodyJ = 1;
 a6.bodyI = 2;
 a6.aBarJ = [0 0 -1]';
