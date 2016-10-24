@@ -12,6 +12,7 @@ classdef body < handle
         myJMatrix; % Polar momnet of inertia matrix for this body.
         myJpMatrix; % 4*G'*J*G
         myG; % Current G matrix for the body
+        myGDot; % Current Gdot matrix for this body.
         myPoints; % Structure containing the important points on the body.
         myVectors; % Structure containing important vectors on the body
         myP; % Euler parameters of local reference frame for given body
@@ -33,6 +34,9 @@ classdef body < handle
         myPDDotTotal = zeros(4,1); % Second time derivate of euler parameters of body across all time steps
         myForces; % Forces applied to this body.
         myTorques; % Torques applied to this body.
+        myTorqueHat; % torqueHat vector for this specific body. This value 
+                     % depends on the current orientation of the body, so 
+                     % it is only computed when the user requests it.
     end
     
     properties (Dependent)
@@ -91,6 +95,16 @@ classdef body < handle
             G = [-e, G2];
             obj.myG = G;            
         end
+        function obj = computeGDotMatrix(obj)
+            % Compute the current G matrix for the body
+            pDot = obj.myPDot;
+            e0Dot = pDot(1);
+            eDot = pDot(2:4);
+            eDotTilde = simEngine3DUtilities.skewSym(eDot);
+            G2 = -eDotTilde + e0Dot*eye(3,3);
+            GDot = [-eDot, G2];
+            obj.myGDot = GDot;            
+        end
         function obj = computeJpMatrix(obj)
             % Extract J matrix for body.
             J = obj.myJMatrix;
@@ -132,17 +146,6 @@ classdef body < handle
             obj.myForces{nForces + 1}.force = force;
             obj.myForces{nForces + 1}.pointOfApplication = sBar;
             obj.myForces{nForces + 1}.name = forceName;
-            
-            % If the force is not applied to the center of mass of the body
-            % it will also produce a torque. Add this torque to the system
-%             if (sBar(1) ~= 0) || (sBar(2) ~= 0) || (sBar(3) ~= 0)
-%                 sBarTilde = simEngine3DUtilities.skewSym(sBar);
-%                 obj.computeA();
-%                 A = obj.myA;
-%                 torque = sBarTilde*A'*force;
-%                 torqueName = ['Torque due to ' forceName];
-%                 obj.addTorque(torque, torqueName);
-%             end
         end
         function obj = addTorque(obj, torque, torqueName)
             % Add a torque to this body.
@@ -163,6 +166,47 @@ classdef body < handle
             
             obj.myTorques{nTorques + 1}.torque = torque;
             obj.myTorques{nTorques + 1}.name = torqueName;
+        end
+        function obj = computeTorqueHat(obj)
+            % Compute torqueHat vector for this body. This depends on the
+            % current orientation of the body.
+            
+            % Compute the sum of all pure torques.
+            torqueSum = [0 0 0]';
+            for iT = 1:obj.myNumTorques
+                torque = obj.myTorques{iT}.torque;
+                torqueSum = torqueSum + torque;                
+            end
+            
+            % Compute the sum of all torques due to forces. If the force is
+            % applied at the center of mass, the variable torque (computed
+            % below) will just be [0 0 0]'
+            for iF = obj.myNumForces
+                sBar = obj.myForces{iF}.pointOfApplication;
+                force = obj.myForces{iF}.force;
+                
+                % Compute contribution of the force to the torque.
+                    sBarTilde = simEngine3DUtilities.skewSym(sBar);
+                    obj.computeA();
+                    A = obj.myA;
+                    torque = sBarTilde*A'*force;
+                    torqueSum = torqueSum + torque;                
+            end
+            
+            % Compute G and Gdot
+            obj.computeGmatrix();
+            obj.computeGDotMatrix();
+            G = obj.myG;
+            GDot = obj.myGDot;
+            
+            % Extract polar moment of inertia matrix and Euler params for
+            % this body.
+            p = obj.myP;
+            Jbar = obj.myJMatrix;
+            
+            % Compute torqueHat for this body.
+            torqueHat = 2*G'*torqueSum + 8*GDot'*Jbar*GDot*p;
+            obj.myTorqueHat = torqueHat; 
         end
         function obj = addPoint(obj, sBar, pointName)
             % Adds a point to this body. This function is helpful for
@@ -301,16 +345,13 @@ classdef body < handle
         function myTotalForce = get.myTotalForce(obj)
             % Compute sum of all the forces acting on this body each time a
             % new force is added to the system. If no forces are added to
-            % the system, myTotalForce = [0 0 0]'.\
+            % the system, myTotalForce = [0 0 0
             nForces = obj.myNumForces;
-            forceMatrix = zeros(3,nForces);
+            forceTotal = zeros(3,1);
             for iF = 1:nForces
-                
-                
-                
-                
+                forceTotal = forceTotal + obj.myForces{iF}.force;
             end
-            
+            myTotalForce = forceTotal;           
         end
     end
     

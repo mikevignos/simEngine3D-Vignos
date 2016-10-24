@@ -1,4 +1,4 @@
-%% simEngine3D_A6P2.m
+%% simEngine3D_A7P1.m
 % File for testing implementation of DP2 and D constraints
 clear; close all; clc;
 

@@ -16,6 +16,8 @@ classdef multibodySystem < handle
         myPDot; % First time derivative of euler parameters of all bodies in system
         myPDDot; % Second time derivative of euler parameters of all bodies in system
         myJpMatrixTotal; % Total Jp matrix. Used for dynamics and inverse dynamics analysis.
+        myForceVector; % Vector of all the forces acting on all the bodies in the system.
+        myTorqueHatVector; % Vector of all the torqueHats for all the bodies in the system.
         myPhiK; % Vector of kinematic constraints
         myPhiD; % Vector of driving constraints
         myPhiP; % Vector of Euler parameter normalization constraints
@@ -202,6 +204,9 @@ classdef multibodySystem < handle
                 % motion
                 obj.computeLagrangeMultipliers();
                 
+                % Compute forces and torques associated with each Lagrange
+                % multiplier.
+                
             end
                
             
@@ -212,9 +217,11 @@ classdef multibodySystem < handle
             %
             
             % Compute the RHS for linear system of equations for inverse dynamics analysis
-            
+            obj.computeInvDynRHS();
+            invDynRHS = obj.myInvDynRHS;
             
             % Compute the constraint partial derivative matrix
+            
             
             % Compute Lagrange multipliers
             
@@ -223,34 +230,100 @@ classdef multibodySystem < handle
             % Compute the RHS of the linear system of equations for the
             % inverse dynamics analysis
             
+            % Determine number of bodies, not including ground.
             if (obj.myBodyIsGround == 1)
-                nBodies = obj.myNumBodies -1;
+                nBodies = obj.myNumBodies - 1;
             else
-                nBodies = obj.muNumBodies;
+                nBodies = obj.myNumBodies;
+            end
+            
+            % Obtain force vector
+            obj.computeForceVector();
+            forceVec = obj.myForceVector;
+            
+            % Obtain mass matrix
+            massMatrix = obj.myMassMatrix;
+            
+            % Obtain vector of acceleration and second time derivative of 
+            % Euler params for all bodies
+            rDDot = obj.myRDDot;
+            pDDot = obj.myPDDot;
+            if (obj.myBodyIsGround == 1)
+                % Remove ground from rDDot and pDDot matrices, if there is a ground
+                % defined in the system. The ground is always body 1.
+                rDDot(:,1) = [];
+                pDDot(:,1) = [];
+            end
+            rDDotVec = reshape(rDDot,[3*nBodies,1]); 
+            pDDotVec = reshape(pDDot,[4*nBodies,1]);
+            
+            % Obtain torqueHat vector
+            obj.computeTorqueHatVector();
+            torqueHatVec = obj.myTorqueHatVector;
+            
+            % Obtain JpMatrix
+            obj.computeJpMatrixTotal();
+            JpMatrix = obj.myJpMatrixTotal;
+            
+            
+            % Compute force related terms of RHS
+            forceTerms = massMatrix*rDDotVec - forceVec;
+            
+            % Compute torque related terms of RHS
+            torqueTerms = JpMatrix*pDDotVec - torqueHatVec;
+            
+            % Assemble RHS vector.
+            invDynRHS = -1*[forceTerms;
+                            torqueTerms];
+                        
+            obj.myInvDynRHS = invDynRHS;           
+        end
+        function obj = computeTorqueHatVector(obj)
+            % Compute torqueHat for all bodies in the system and assemble
+            % into a vector.
+            
+            % Seed torqueHat vector
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            torqueHatVector = zeros(4*nBodies,1);
+            
+            % Loop through all bodies. Compute torqueHat. Add this
+            % torqueHat to the overall vector
+            iT = 1;
+            for iB = 1:obj.myNumBodies
+                if (obj.myBodies{iB}.myIsGround == 0)
+                    obj.myBodies{iB}.computeTorqueHat();
+                    torqueHat = obj.myBodies{iB}.myTorqueHat;
+                    torqueHatVector((4*iT-3):(4*iT),1) = torqueHat;                    
+                    iT = iT + 1;
+                end
+            end
+            obj.myTorqueHatVector = torqueHatVector;
+            
+        end
+        function obj = computeForceVector(obj)
+            % Compute force vector of the system
+            
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
             end
             
             % Obtain force vector. Loop through all bodies and extract the
             % total force for the body.
             forceVector = zeros(3*nBodies,1);
+            iF = 1;
             for iB = 1:obj.myNumBodies
-            % Obtain mass matrix
-            
-            % Obtain vector of acceleration of all bodies
-            
-            % Obtain torqueHat vector
-            
-            % Obtain JpMatrix
-            
-            % Obtain vector of second time derivate of Euler params
-            
-            % Compute force related terms of RHS
-            
-            % Compute torque related terms of RHS
-            
-            % Assemble RHS vector.
-            
-            
-            
+                if (obj.myBodies{iB}.myIsGround == 0)
+                    forceVector((3*iF-2:3*iF),1) = obj.myBodies{iB}.myTotalForce; 
+                    iF = iF + 1;
+                end
+            end
+            obj.myForceVector = forceVector;
         end
         function  obj = computeJpMatrixTotal(obj)
             % Compute the total J matrix for all bodies.
@@ -263,14 +336,14 @@ classdef multibodySystem < handle
             end
             JpMatrixTotal = zeros(4*nBodies,4*nBodies);
             
-            % Loop through all bodies. Extract J for the body. Put J into
+            % Loop through all bodies. Extract Jp for the body. Put Jp into
             % the total matrix.
             iC = 1;
             for iB = 1:obj.myNumBodies
                 if (obj.myBodies{iB}.myIsGround == 0)
                     obj.myBodies{iB}.computeJpMatrix();
-                    JMatrix = obj.myBodies{iB}.myJpMatrix;
-                    JpMatrixTotal((4*iC-3):4*iC,(4*iC-3):4*iC) = JMatrix;
+                    JpMatrix = obj.myBodies{iB}.myJpMatrix;
+                    JpMatrixTotal((4*iC-3):4*iC,(4*iC-3):4*iC) = JpMatrix;
                     iC = iC + 1;
                 end                
             end
