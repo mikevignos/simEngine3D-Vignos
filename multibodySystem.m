@@ -15,7 +15,7 @@ classdef multibodySystem < handle
         myP; % Euler parameters of all bodies in system
         myPDot; % First time derivative of euler parameters of all bodies in system
         myPDDot; % Second time derivative of euler parameters of all bodies in system
-        myJMatrixTotal; % Total J matrix. Used for dynamics and inverse dynamics analysis.
+        myJpMatrixTotal; % Total Jp matrix. Used for dynamics and inverse dynamics analysis.
         myPhiK; % Vector of kinematic constraints
         myPhiD; % Vector of driving constraints
         myPhiP; % Vector of Euler parameter normalization constraints
@@ -219,7 +219,40 @@ classdef multibodySystem < handle
             % Compute Lagrange multipliers
             
         end
-        function  obj = computeJMatrixTotal(obj)
+        function obj = computeInvDynRHS(obj)
+            % Compute the RHS of the linear system of equations for the
+            % inverse dynamics analysis
+            
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies -1;
+            else
+                nBodies = obj.muNumBodies;
+            end
+            
+            % Obtain force vector. Loop through all bodies and extract the
+            % total force for the body.
+            forceVector = zeros(3*nBodies,1);
+            for iB = 1:obj.myNumBodies
+            % Obtain mass matrix
+            
+            % Obtain vector of acceleration of all bodies
+            
+            % Obtain torqueHat vector
+            
+            % Obtain JpMatrix
+            
+            % Obtain vector of second time derivate of Euler params
+            
+            % Compute force related terms of RHS
+            
+            % Compute torque related terms of RHS
+            
+            % Assemble RHS vector.
+            
+            
+            
+        end
+        function  obj = computeJpMatrixTotal(obj)
             % Compute the total J matrix for all bodies.
             
             % Determine number of bodies in system and see the J matrix
@@ -228,7 +261,7 @@ classdef multibodySystem < handle
             else
                 nBodies = obj.myNumBodies;
             end
-            JMatrixTotal = zeros(4*nBodies,4*nBodies);
+            JpMatrixTotal = zeros(4*nBodies,4*nBodies);
             
             % Loop through all bodies. Extract J for the body. Put J into
             % the total matrix.
@@ -236,14 +269,12 @@ classdef multibodySystem < handle
             for iB = 1:obj.myNumBodies
                 if (obj.myBodies{iB}.myIsGround == 0)
                     obj.myBodies{iB}.computeJpMatrix();
-                    JMatrix = obj
+                    JMatrix = obj.myBodies{iB}.myJpMatrix;
+                    JpMatrixTotal((4*iC-3):4*iC,(4*iC-3):4*iC) = JMatrix;
                     iC = iC + 1;
-                end
-                
-                
+                end                
             end
-            
-            
+            obj.myJpMatrixTotal = JpMatrixTotal;
         end
         function obj = storeSystemState(obj)
             % Store the current state of each body

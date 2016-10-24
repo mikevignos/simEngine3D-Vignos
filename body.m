@@ -41,6 +41,7 @@ classdef body < handle
         myNumTimeSteps; % Total number of time steps
         myNumForces = 0; % Number of active forces being applied to this body.
         myNumTorques = 0; % Number of active toruqes being appliced to this body.
+        myTotalForce = zeros(3,1); % 3x1 vector containing the sum of all the forces applied to the body.
     end
     
     methods
@@ -97,6 +98,8 @@ classdef body < handle
             % Compute G matrix
             obj.computeGmatrix();
             G = obj.myG;
+            
+            % Compute Jp matrix.
             Jp = 4*G'*J*G;
             obj.myJpMatrix = Jp;            
         end
@@ -294,6 +297,20 @@ classdef body < handle
         end
         function myNumTorques = get.myNumTorques(obj)
             myNumTorques = length(obj.myTorques);
+        end
+        function myTotalForce = get.myTotalForce(obj)
+            % Compute sum of all the forces acting on this body each time a
+            % new force is added to the system. If no forces are added to
+            % the system, myTotalForce = [0 0 0]'.\
+            nForces = obj.myNumForces;
+            forceMatrix = zeros(3,nForces);
+            for iF = 1:nForces
+                
+                
+                
+                
+            end
+            
         end
     end
     
