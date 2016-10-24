@@ -15,25 +15,34 @@ classdef multibodySystem < handle
         myP; % Euler parameters of all bodies in system
         myPDot; % First time derivative of euler parameters of all bodies in system
         myPDDot; % Second time derivative of euler parameters of all bodies in system
+        myJMatrixTotal; % Total J matrix. Used for dynamics and inverse dynamics analysis.
         myPhiK; % Vector of kinematic constraints
         myPhiD; % Vector of driving constraints
         myPhiP; % Vector of Euler parameter normalization constraints
         myPhiFull; % Full constraint matrix. Made up of combination of kinematic, driving, and Euler parameter normalization constraints.
         myPhiFullJacobian; % Jacobian of full constraint matrix.
+        myPhiPartialR; % Partial derivative of constraint matrix w.r.t. position (not including Euler normalization constraints) 
+        myPhiPartialP; % Partial derivative of constraint matrix w.r.t euler parameters (not including Euler normalization constraints)
         myNu; % RHS of velocity equation for entire multibody system
         myGamma; % RHS of acceleration equation for entire multibody system
         myTime; % Current time within system.
+        myLagrangeMultipliers; % Lagrange multipliers for constraints.
+        myPMatrix; % Euler parametrization constraint matrix
+        myInvDynRHS; % RHS of inverse dynamics equations
+        myInvDynMatrix; % Matrix that contains partial derivatives of constraints. This is the A matrix when solving Ax = b in inverse dynamics analysis.
     end
     
     properties (Dependent)
         myNumBodies; % Number of bodies in the system
         myNumConstraints; % Number of kinematic and driving constraints in the system
+        myMassMatrix; % Mass matrix for the entire system.
+        myJMatrix; % Polar moment of inertia matrix for the entire system.
     end
     
     methods
         function obj = multibodySystem()
         end
-        function obj = addBody(obj,bodyNumber, bodyType, isGround, mass, bodyLength)
+        function obj = addBody(obj,bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix)
             % mass : double
             %   Mass of body in kg
             %
@@ -54,8 +63,57 @@ classdef multibodySystem < handle
             end
             
             % Add a body to the system
-            newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength);
+            newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix);
             obj.myBodies{bodyNumber} = newBody;
+        end
+        function obj = addForce(obj, bodyNumber, force, sBar, forceName)
+            % Add a force to a body in the multibody system
+            % 
+            % Function inputs:
+            % bodyNumber : int
+            %   Number of the body that you want to apply the force to.
+            %            
+            % force : 3x1 double
+            %   x,y, and z components of force.
+            %
+            % sBar : 3x1 double
+            %   Point of application of the force in the body reference
+            %   frame. If the force is applied to the center of mass 
+            %   sBar = [0 0 0]'.
+            %
+            % forceName : string
+            %   Name of this force. Optional input.
+            %   
+            sBar = sBar(:);
+            force = force(:);
+            nForces = obj.myBodies{bodyNumber}.myNumForces;
+
+            if vargin < 5
+                forceName = ['Force ' num2str(nForces+1) ' on body ' num2str(bodyNumber) ];
+            end
+            
+            obj.myBodies{bodyNumber}.addForce(force, sBar, forceName);
+        end
+        function obj = addTorque(obj, bodyNumber, torque, torqueName)
+            % Add a torque to a specific body in the multibody system
+            %
+            % Function inputs:
+            % bodyNumber : int
+            %   Body to which you want to apply this torque.
+            %
+            % torque : 3x1 double
+            %   x, y, and z-components of torque.
+            %
+            % torqueName : string
+            %   Name of this torque. Optional input.
+            torque = torque(:);
+            nTorques = obj.myBodies{bodyNumber}.myNumTorques;
+
+            if vargin < 4
+                torqueName = ['Torque ' num2str(nTorques+1) ' on body ' num2str(bodyNumber) ];
+            end
+            
+            obj.myBodies{bodyNumber}.addTorque(torque, torqueName);          
         end
         function obj = kinematicsAnalysis(obj, startTime, endTime, timeStep, displayFlag)
             % Perform kinematics analysis with this multibody system for
@@ -85,10 +143,10 @@ classdef multibodySystem < handle
                 
                 % Check Jacobian at this point. Throw a warning if it is
                 % close to singular
-%                 phiFullJacobian = obj.myPhiFullJacobian;
-%                 if norm(phiFullJacobian) < 10^-12
-%                     disp('WARNING: Solution approaching singular configuration!!!');
-%                 end
+                %                 phiFullJacobian = obj.myPhiFullJacobian;
+                %                 if norm(phiFullJacobian) < 10^-12
+                %                     disp('WARNING: Solution approaching singular configuration!!!');
+                %                 end
                 
                 % Compute qDot
                 obj.computeQDot(t);
@@ -104,6 +162,88 @@ classdef multibodySystem < handle
                     disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
                 end
             end
+        end
+        function obj = inverseDynamicsAnalysis(obj, startTime, endTime, timestep)
+            % Perform an inverse dynamics analysis.
+            %
+            % Function inputs:
+            % startTime : double
+            %   Start time for analysis.
+            %
+            % endTime : double
+            %   End time for analysis
+            %
+            % timestep : double
+            %   Time step for analysis.
+            time = startTime:timestep:endTime;
+            
+            for iT = 1:length(time)
+                t = time(iT);
+                
+                % Perform kinematics analysis to get acceleration
+                % If it is not the first time-step, we must use
+                % Newton-Raphson to solve for q. If it is the first
+                % time-step, q is given as an initial condition.
+                if (t ~= startTime)
+                    obj.computeQ(t);
+                end
+                
+                % Compute qDot
+                obj.computeQDot(t);
+                
+                % Compute gamma and qDDot
+                obj.computeQDDot(t);
+                
+                % Store the position and orientation information for the
+                % current time step
+                obj.storeSystemState();
+                
+                % Compute the Lagrange multipliers using the equations of
+                % motion
+                obj.computeLagrangeMultipliers();
+                
+            end
+               
+            
+        end
+        function obj = computeLagrangeMultipliers(obj)
+            % Compute the Lagrange multipliers that will be used for
+            % computing the reaction force and torques
+            %
+            
+            % Compute the RHS for linear system of equations for inverse dynamics analysis
+            
+            
+            % Compute the constraint partial derivative matrix
+            
+            % Compute Lagrange multipliers
+            
+        end
+        function  obj = computeJMatrixTotal(obj)
+            % Compute the total J matrix for all bodies.
+            
+            % Determine number of bodies in system and see the J matrix
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            JMatrixTotal = zeros(4*nBodies,4*nBodies);
+            
+            % Loop through all bodies. Extract J for the body. Put J into
+            % the total matrix.
+            iC = 1;
+            for iB = 1:obj.myNumBodies
+                if (obj.myBodies{iB}.myIsGround == 0)
+                    obj.myBodies{iB}.computeJpMatrix();
+                    JMatrix = obj
+                    iC = iC + 1;
+                end
+                
+                
+            end
+            
+            
         end
         function obj = storeSystemState(obj)
             % Store the current state of each body
@@ -189,7 +329,7 @@ classdef multibodySystem < handle
             rInitVec = reshape(rInit,[3*nBodies 1]);
             pInitVec = reshape(pInit,[4*nBodies 1]);
             qGuess = [rInitVec; pInitVec];
-                        
+            
             
             % Use Newton-Raphson method to compute q
             maxIter = 50;
@@ -231,7 +371,7 @@ classdef multibodySystem < handle
                     rNew = qNew(1:3*nBodies);
                     pNew = qNew((3*nBodies + 1):7*nBodies);
                 end
-
+                
                 % Reshape into a matrix
                 rMatrix = reshape(rNew,[3 obj.myNumBodies]);
                 pMatrix = reshape(pNew, [4 obj.myNumBodies]);
@@ -249,48 +389,48 @@ classdef multibodySystem < handle
                 
                 % Update iteration count
                 iter = iter + 1;
-            end 
+            end
             
             % Check to see if theta is satisfied.......
             
-
-%             % Perform newton-raphson using fsolve
-%             opt = optimset('fsolve');
-%             opt.GradObj = 'on';
-%             qFinal = fsolve(@(q)obj.NRfunction(q),qGuess);
-%             
-%             % Update the system state with the final position
-%             % If one of the bodies is the
-%             % ground you need to put r and p for the ground back into
-%             % the results, just so we maintain the correct number of total
-%             % bodies in the system.
-%             if (obj.myBodyIsGround == 1)
-%                 nBodies = obj.myNumBodies - 1;
-%                 rTemp = qFinal(1:3*nBodies);
-%                 pTemp = qFinal((3*nBodies + 1):7*nBodies);
-%                 
-%                 rGround = [0 0 0]';
-%                 pGround = [1 0 0 0]';
-%                 
-%                 rNew = [rGround; rTemp];
-%                 pNew = [pGround; pTemp];
-%             else
-%                 nBodies = obj.myNumBodies;
-%                 rNew = qFinal(1:3*nBodies);
-%                 pNew = qFinal((3*nBodies + 1):7*nBodies);
-%             end
-%             
-%             % Reshape into a matrix
-%             rMatrix = reshape(rNew,[3 obj.myNumBodies]);
-%             pMatrix = reshape(pNew, [4 obj.myNumBodies]);
-%             
-%             % Update the position. If this is the last time through the
-%             % loop, this will allow us to update the system to the
-%             % final solution.
-%             obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], time);
-%                 
-%                 %%%%%
-
+            
+            %             % Perform newton-raphson using fsolve
+            %             opt = optimset('fsolve');
+            %             opt.GradObj = 'on';
+            %             qFinal = fsolve(@(q)obj.NRfunction(q),qGuess);
+            %
+            %             % Update the system state with the final position
+            %             % If one of the bodies is the
+            %             % ground you need to put r and p for the ground back into
+            %             % the results, just so we maintain the correct number of total
+            %             % bodies in the system.
+            %             if (obj.myBodyIsGround == 1)
+            %                 nBodies = obj.myNumBodies - 1;
+            %                 rTemp = qFinal(1:3*nBodies);
+            %                 pTemp = qFinal((3*nBodies + 1):7*nBodies);
+            %
+            %                 rGround = [0 0 0]';
+            %                 pGround = [1 0 0 0]';
+            %
+            %                 rNew = [rGround; rTemp];
+            %                 pNew = [pGround; pTemp];
+            %             else
+            %                 nBodies = obj.myNumBodies;
+            %                 rNew = qFinal(1:3*nBodies);
+            %                 pNew = qFinal((3*nBodies + 1):7*nBodies);
+            %             end
+            %
+            %             % Reshape into a matrix
+            %             rMatrix = reshape(rNew,[3 obj.myNumBodies]);
+            %             pMatrix = reshape(pNew, [4 obj.myNumBodies]);
+            %
+            %             % Update the position. If this is the last time through the
+            %             % loop, this will allow us to update the system to the
+            %             % final solution.
+            %             obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], time);
+            %
+            %                 %%%%%
+            
         end
         
         function obj = computeQDot(obj, time)
@@ -328,13 +468,13 @@ classdef multibodySystem < handle
                 rDot = qDot(1:3*nBodies);
                 pDot = qDot((3*nBodies + 1):7*nBodies);
             end
-
+            
             % Reshape into a matrix
             rDotMatrix = reshape(rDot,[3 obj.myNumBodies]);
             pDotMatrix = reshape(pDot, [4 obj.myNumBodies]);
             
             % Update the velocities
-            obj.updateSystemState([], rDotMatrix, [], [], pDotMatrix, [], time);        
+            obj.updateSystemState([], rDotMatrix, [], [], pDotMatrix, [], time);
         end
         function obj = computeQDDot(obj, time)
             % Compute acceleration and second time derivative of Euler
@@ -381,7 +521,7 @@ classdef multibodySystem < handle
             pDDotMatrix = reshape(pDDot, [4 obj.myNumBodies]);
             
             % Update the velocities
-            obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);   
+            obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);
         end
         function obj = computePhiFull(obj)
             % Compute each component of phiFull
@@ -392,13 +532,13 @@ classdef multibodySystem < handle
             phiFull = [obj.myPhiK;
                 obj.myPhiD;
                 obj.myPhiP];
-            obj.myPhiFull = phiFull; 
+            obj.myPhiFull = phiFull;
         end
         function obj = computePhiK(obj)
             % Loop through each constraint and check if it is a kinematic
             % constraint. If it is, compute phi for the constraint and add
             % it to the constraint matrix
-
+            
             % Seed phiK
             phiK = zeros(obj.myNumKinematicConstraints,1);
             
@@ -414,13 +554,13 @@ classdef multibodySystem < handle
             end
             
             % Update myPhiK
-            obj.myPhiK = phiK;          
+            obj.myPhiK = phiK;
         end
         function obj = computePhiD(obj)
             % Loop through each constraint and check if it is a driving
             % constraint. If it is, compute phi for the constraint and add
             % it to the constraint matrix
-
+            
             % Seed phiD
             phiD = zeros(obj.myNumDrivingConstraints,1);
             
@@ -438,7 +578,7 @@ classdef multibodySystem < handle
             end
             
             % Update myPhiD
-            obj.myPhiD = phiD; 
+            obj.myPhiD = phiD;
         end
         function obj = computePhiP(obj)
             % There will be one Euler parameter normalization constraint
@@ -487,7 +627,7 @@ classdef multibodySystem < handle
                 phiFullPartialR = zeros((nKDconst + nBodies), 3*nBodies);
                 phiFullPartialP = zeros((nKDconst + nBodies), 4*nBodies);
             end
-
+            
             % Loop through each kinematic and driving constraint. Compute
             % phiPartialR and phiPartialP for each. Insert these the
             % correct location in the Jacobian. This location depends on
@@ -596,7 +736,7 @@ classdef multibodySystem < handle
             for iC = 1:nKDconst
                 nuFlag = 1;
                 obj.computeConstraintProperties(iC, time, 0, nuFlag, 0, 0, 0);
-                nuTotal(iC,:) = obj.myConstraints{iC}.myNu;            
+                nuTotal(iC,:) = obj.myConstraints{iC}.myNu;
             end
             
             % Update system level Nu
@@ -646,7 +786,7 @@ classdef multibodySystem < handle
             end
             
             % Update system level gamma
-            obj.myGamma = gammaTotal;           
+            obj.myGamma = gammaTotal;
         end
         function plot(obj,vargin)
             % Override Matlab's plot command to plot the multibodySystem
@@ -779,7 +919,7 @@ classdef multibodySystem < handle
             % constraintType : int
             %   Type of basic constraint. Possible options 'dp1', 'dp2',
             %   'd', or 'cd'
-            % 
+            %
             % attributes : struct
             %   Structure containing all of the necessary attributes for
             %   your desired constraint. This function will check to make
@@ -920,15 +1060,81 @@ classdef multibodySystem < handle
         end
         
     end
-     % Methods block with no attributes
-     methods
-        function myNumBodies = get.myNumBodies(obj) 
+    % Methods block with no attributes
+    methods
+        function myNumBodies = get.myNumBodies(obj)
             % Calculate number of bodies in system
             myNumBodies = length(obj.myBodies);
         end
         function myNumConstraints = get.myNumConstraints(obj)
             % Calculate number of constraints in system
             myNumConstraints = length(obj.myConstraints);
+        end
+        function myMassMatrix = get.myMassMatrix(obj)
+            % Each time a new body is added to the system, update thte mass
+            % matrix.
+            
+            % Seed the mass matrix. Loop through each body and place the
+            % mass matrix of each body in the total mass matrix, unless the
+            % body is the ground. Then it contributes nothing to the mass
+            % matrix.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                if (nBodies == 0)
+                    myMassMatrix = [];
+                else
+                    myMassMatrix = zeros(3*nBodies,3*nBodies);
+                    iEntries = 1;
+                    for iB = 1:(nBodies+1)
+                        if (obj.myBodies{iB}.myIsGround == 0)
+                            bodyMass = obj.myBodies{iB}.myMassMatrix;
+                            myMassMatrix((3*iEntries - 2):3*iEntries,(3*iEntries - 2):3*iEntries) = bodyMass;
+                            iEntries = iEntries + 1;
+                        end
+                    end
+                end
+            else
+                nBodies = obj.myNumBodies;
+                myMassMatrix = zeros(3*nBodies,3*nBodies);
+                for iB = 1:nBodies
+                    bodyMass = obj.myBodies{iB}.myMassMatrix;
+                    myMassMatrix((3*iB-2):3*iB,(3*iB-2):3*iB) = bodyMass;
+                end
+            end
+            
+            
+        end
+        function myJMatrix = get.myJMatrix(obj)
+            % Each time a new body is added to the system, update the polar
+            % moment of inertia matrx.
+            
+                        % Seed the J matrix. Loop through each body and place the
+            % J matrix of each body in the total J matrix, unless the
+            % body is the ground. Then it contributes nothing to the J
+            % matrix.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                if (nBodies == 0)
+                    myJMatrix = [];
+                else
+                    myJMatrix = zeros(3*nBodies,3*nBodies);
+                    iEntries = 1;
+                    for iB = 1:(nBodies+1)
+                        if (obj.myBodies{iB}.myIsGround == 0)
+                            bodyJMatrix = obj.myBodies{iB}.myJMatrix;
+                            myJMatrix((3*iEntries - 2):3*iEntries,(3*iEntries - 2):3*iEntries) = bodyJMatrix;
+                            iEntries = iEntries + 1;
+                        end
+                    end
+                end
+            else
+                nBodies = obj.myNumBodies;
+                myJMatrix = zeros(3*nBodies,3*nBodies);
+                for iB = 1:nBodies
+                    bodyJMatrix = obj.myBodies{iB}.myMassMatrix;
+                    myJMatrix((3*iB-2):3*iB,(3*iB-2):3*iB) = bodyJMatrix;
+                end
+            end
         end
     end
     

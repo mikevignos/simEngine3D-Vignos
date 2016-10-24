@@ -7,8 +7,11 @@ classdef body < handle
         myBodyType; % Currently only bars and ground are supported
         myIsGround; % Flag if the body is the ground
         myMass; % Mass of the body
+        myMassMatrix; % Mass matrix for this body.
         myLength; % Length of the body. This will only be set if the body is a bar.
-        myJ; % Polar moment of inertia for body
+        myJMatrix; % Polar momnet of inertia matrix for this body.
+        myJpMatrix; % 4*G'*J*G
+        myG; % Current G matrix for the body
         myPoints; % Structure containing the important points on the body.
         myVectors; % Structure containing important vectors on the body
         myP; % Euler parameters of local reference frame for given body
@@ -28,16 +31,20 @@ classdef body < handle
         myPTotal = zeros(4,1); % Euler parameters of body across all time steps
         myPDotTotal = zeros(4,1); % First time derivate of euler parameters of body across all time steps
         myPDDotTotal = zeros(4,1); % Second time derivate of euler parameters of body across all time steps
+        myForces; % Forces applied to this body.
+        myTorques; % Torques applied to this body.
     end
     
     properties (Dependent)
         myNumPoints; % Number of points defined on body
         myNumVectors; % Number of vectors defined on body
-        myNumTimeSteps; % Total number of time steps 
+        myNumTimeSteps; % Total number of time steps
+        myNumForces = 0; % Number of active forces being applied to this body.
+        myNumTorques = 0; % Number of active toruqes being appliced to this body.
     end
     
     methods
-        function obj = body(bodyNumber, bodyType, isGround, mass, bodyLength)
+        function obj = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix)
             % Set parameters that are sent in
             obj.myBodyNumber = bodyNumber;
             obj.myBodyType = bodyType;
@@ -45,26 +52,114 @@ classdef body < handle
             obj.myMass = mass;
             obj.myLength = bodyLength;
             
-            % Compute polar moment of inertia for body
-            if strcmp(bodyType,'bar')
-                J = (mass*bodyLength^2)/12;
-            else
-                J = 0;
+            % Store the user input Jmatrix of the body. It would be nice to
+            % compute the Jmatrix for the user, but for most bodies J
+            % depends on the choice of local reference frame.
+            obj.myJMatrix = JMatrix;
+            
+            % Compute mass matrix and polar moment of inertia matrix for
+            % this body.
+            obj.myMassMatrix = mass*eye(3,3);
+            
+            % Add the force of gravity to this body. This currently assumes
+            % that gravity acts in the -Z direction.
+            if (isGround == 0)
+                force = [0 0 -9.8*mass]';
+                sBar = [0 0 0]';
+                obj.addForce(force, sBar, 'Force of Gravity');
             end
-            obj.myJ = J;
-            
-            
         end
         
         function obj = updateBody(obj, p, pDot, pDDot, r, rDot, rDDot, time)
             % Update the current orientation and position of the given body
             obj.myP = p;
-            obj.myR = r;          
+            obj.myR = r;
             obj.myPDot = pDot;
             obj.myRDot = rDot;
             obj.myPDDot = pDDot;
             obj.myRDDot = rDDot;
             obj.myTime = time;
+        end
+        function obj = computeGmatrix(obj)
+            % Compute the current G matrix for the body
+            p = obj.myP;
+            e0 = p(1);
+            e = p(2:4);
+            eTilde = simEngine3DUtilities.skewSym(e);
+            G2 = -eTilde + e0*eye(3,3);
+            G = [-e, G2];
+            obj.myG = G;            
+        end
+        function obj = computeJpMatrix(obj)
+            % Extract J matrix for body.
+            J = obj.myJMatrix;
+            
+            % Compute G matrix
+            obj.computeGmatrix();
+            G = obj.myG;
+            Jp = 4*G'*J*G;
+            obj.myJpMatrix = Jp;            
+        end
+        function obj = addForce(obj, force, sBar, forceName)
+            % Add a force to this body. If this force also contributes a
+            % torque, that needs to be computing during the dynamics
+            % analysis phase.
+            % 
+            % Function inputs:
+            % force : 3x1 double
+            %   x,y, and z components of force defined in the global
+            %   reference frame.
+            %
+            % sBar : 3x1 double
+            %   Point of application of the force in the body reference
+            %   frame. If the force is applied to the center of mass 
+            %   sBar = [0 0 0]'.
+            %
+            % forceName : string
+            %   Name of this force. Optional inpur.
+            %   
+            sBar = sBar(:);
+            force = force(:);
+            nForces = obj.myNumForces;
+            bodyNum = obj.myBodyNumber;
+            if nargin < 4
+                forceName = ['Force ' num2str(nForces+1) ' on body ' num2str(bodyNum) ];
+            end
+            
+            obj.myForces{nForces + 1}.force = force;
+            obj.myForces{nForces + 1}.pointOfApplication = sBar;
+            obj.myForces{nForces + 1}.name = forceName;
+            
+            % If the force is not applied to the center of mass of the body
+            % it will also produce a torque. Add this torque to the system
+%             if (sBar(1) ~= 0) || (sBar(2) ~= 0) || (sBar(3) ~= 0)
+%                 sBarTilde = simEngine3DUtilities.skewSym(sBar);
+%                 obj.computeA();
+%                 A = obj.myA;
+%                 torque = sBarTilde*A'*force;
+%                 torqueName = ['Torque due to ' forceName];
+%                 obj.addTorque(torque, torqueName);
+%             end
+        end
+        function obj = addTorque(obj, torque, torqueName)
+            % Add a torque to this body.
+            %
+            % Function inputs:
+            % torque : 3x1 double
+            %   x, y, and z-components of torque.
+            %
+            % torqueName : string
+            %   Name of this torque.
+            
+            torque = torque(:);
+            nTorques = obj.myNumTorques;
+
+            if nargin < 3
+                torqueName = ['Torque ' num2str(nTorques+1) ' on body ' num2str(obj.myBodyNumber)];
+            end
+            
+            obj.myTorques{nTorques + 1}.torque = torque;
+            obj.myTorques{nTorques + 1}.name = torqueName;
         end
         function obj = addPoint(obj, sBar, pointName)
             % Adds a point to this body. This function is helpful for
@@ -193,6 +288,12 @@ classdef body < handle
         end
         function myNumTimeSteps = get.myNumTimeSteps(obj)
             myNumTimeSteps = length(obj.myTimeTotal);
+        end
+        function myNumForces = get.myNumForces(obj)
+            myNumForces = length(obj.myForces);
+        end
+        function myNumTorques = get.myNumTorques(obj)
+            myNumTorques = length(obj.myTorques);
         end
     end
     

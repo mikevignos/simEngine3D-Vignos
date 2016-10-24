@@ -10,7 +10,8 @@ sys = multibodySystem();
 mass1 = 0;
 length1 = 0;
 isGround1 = 1;
-sys.addBody(1, 'ground', isGround1, mass1,length1);
+JMatrix1 = zeros(3,3);
+sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1);
 
 % Add body2
 % Compute mass of the bar.
@@ -20,8 +21,17 @@ area = 0.05 * 0.05; % m^2
 volume = length2*area; % m^3
 mass2 = density*volume;
 
+% Compute JMatrix.
+Jxx = 0;
+Jyy = (mass2*length2^2)/12;
+Jzz = (mass2*length2^2)/12;
+JMatrix2 = zeros(3,3);
+JMatrix2(1,1) = Jxx;
+JMatrix2(2,2) = Jyy;
+JMatrix2(3,3) = Jzz;
+
 isGround2 = 0;
-sys.addBody(2, 'bar', isGround2, mass2,length2);
+sys.addBody(2, 'bar', isGround2, mass2, length2, JMatrix2);
 
 %% Define important points and vectors in the system
 sys.addPoint(1, [0 0 0]', 'O');
@@ -119,7 +129,7 @@ sys.addBasicConstraint(isKinematic,'dp1',a6);
 %% Perform kinematics analysis
 if 1
     timeStart = 0;
-    timeEnd = 10;
+    timeEnd = 1;
     timeStep = 10^-3;
     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, 0);
     % Save the multibody system since it contains the results
