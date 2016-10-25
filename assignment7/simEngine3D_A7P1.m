@@ -126,6 +126,17 @@ a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
+%% Perform inverse dynamics analysis
+if 1
+    timeStart = 0;
+    timeEnd = 1;
+    timeStep = 10^-3;
+    sys.inverseDynamicsAnalysis(timeStart, timeEnd,timeStep)
+    save('multibodySystem_A7P1.mat','sys');
+else
+    load('multibodySystem_A7P1.mat')
+end
+
 %% Perform kinematics analysis
 if 1
     timeStart = 0;

@@ -28,7 +28,9 @@ classdef multibodySystem < handle
         myNu; % RHS of velocity equation for entire multibody system
         myGamma; % RHS of acceleration equation for entire multibody system
         myTime; % Current time within system.
-        myLagrangeMultipliers; % Lagrange multipliers for constraints.
+        myConstraintsLagrangeMultipliers; % Lagrange multipliers for constraints.
+        myConstraintTorques; % Forces due to constraints. Computed using Lagrange multipliers
+        myConstraintForces; % Torques due to constraints. Comuted using Lagrange multipleiers.
         myPMatrix; % Euler parametrization constraint matrix
         myInvDynRHS; % RHS of inverse dynamics equations
         myInvDynMatrix; % Matrix that contains partial derivatives of constraints. This is the A matrix when solving Ax = b in inverse dynamics analysis.
@@ -206,9 +208,31 @@ classdef multibodySystem < handle
                 
                 % Compute forces and torques associated with each Lagrange
                 % multiplier.
+                obj.computeConstraintForces();
+                obj.computeConstraintTorques();
+                
+                % Store the current forces and torques for all the
+                % constraints
+                obj.storeConstraintForcesAndTorques(t); %%%% Finish this function.
                 
             end
                
+            
+        end
+        function obj = computeConstraintForces(obj)
+            % Compute the forces induced by each constraint.
+            
+            lagrangeMults = obj.myConstraintLagrangeMultipliers;
+            phiPartialR = obj.myPhiPartialR;
+            constraintForces = -phiPartialR'*lagrangeMults;
+            obj.myConstraintForces = constraintForces;   
+        end
+        function obj = computeConstraintTorques(obj)
+            % Compute the torques induced by each constraint
+            lagrangeMults = obj.myConstraintLagrangeMultipliers;
+            phiPartialP = obj.myPhiPartialP;
+            constraintTorques = -phiPartialP'*lagrangeMults;
+            obj.myConstraintTorques = constraintTorques; 
             
         end
         function obj = computeLagrangeMultipliers(obj)
@@ -220,12 +244,207 @@ classdef multibodySystem < handle
             obj.computeInvDynRHS();
             invDynRHS = obj.myInvDynRHS;
             
-            % Compute the constraint partial derivative matrix
-            
+            % Compute the constraint partial derivative matrix. The matrix
+            % is the A matrix in solving Ax = b.
+            obj.computeInvDynMatrix();
+            invDynMatrix = obj.myInvDynMatrix();          
+        
             
             % Compute Lagrange multipliers
+            lagrangeMultipliers = invDynMatrix\invDynRHS;
+            
+            % Extract lagrange multipliers for constraints
+            nConst = obj.myNumConstraints;
+            lagrangeMultConst = lagrangeMultipliers(1:nConst);
+            obj.myConstraintLagrangeMultipliers = lagrangeMultConst;
             
         end
+        function obj = computeInvDynMatrix(obj)
+            % Compute the left hand side matrix for the inverse dynamics
+            % analysis. This matrix is of the form:
+            % [phiPartialR' zeros(3*nb,nb);
+            % phiPartialP' P']
+            
+            % Compute partial derivative of the constraint matrix w.r.t.
+            % displacements.
+            obj.computePhiPartialR();
+            phiPartialR = obj.myPhiPartialR;
+
+            % Compute partial derivative of the constraint matrix w.r.t.
+            % orientation.
+            obj.computePhiPartialP();
+            phiPartialP = obj.myPhiPartialP;
+            
+            % Compute P matrix. This matrix contains the Euler
+            % normalization constraints.
+            obj.computePMatrix();
+            P = obj.myPMatrix;
+            
+            % Build the A matrix
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            zeroMatrix = zeros(3*nBodies,nBodies);
+            invDynMatrix = [phiPartialR', zeroMatrix;
+                phiPartialP', P'];
+            obj.myInvDynMatrix = invDynMatrix;
+        end
+        function obj = computePMatrix(obj)
+            % Compute Euler param matrix
+            
+            % Determine number of bodies. Also, extract the Euler params
+            % for all the bodies. Remove the first column of the parameters
+            % if one of the bodies is that ground because we do not want
+            % those values.
+            p = obj.myP;
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                p(:,1) = [];
+            else
+                nBodies = obj.myNumBodies;
+            end
+            
+            % Seed the P matrix
+            Pmatrix = zeros(nBodies,4*nBodies);
+            
+            % Loop through each body and add it to the matrix
+            for iB = 1:nBodies
+                Pmatrix(iB, (4*iB - 3):4*iB) = p(:,iB)';
+            end
+            obj.myPMatrix = Pmatrix;
+        end
+        function obj = computePhiPartialR(obj)
+            % Compute partial derivative of the constraint matrix w.r.t
+            % translation (R)
+            
+            % Seed the Jacobian. There will be 3 less columns in the
+            % Jacobian if one of the bodies is the ground.
+            nBodies = obj.myNumBodies;
+            nKDconst = obj.myNumConstraints;
+            
+            if (obj.myBodyIsGround == 1)
+                phiPartialR = zeros(nKDconst, 3*(nBodies - 1));
+            else
+                phiPartialR = zeros(nKDconst, 3*nBodies);
+            end
+            
+           % Loop through each kinematic and driving constraint. Compute
+            % phiPartialR for each. Insert these the
+            % correct location in the Jacobian. This location depends on
+            % which bodies are involved in the constraint. If one of the
+            % bodies is the ground, then it will not appear in the
+            % Jacobian.
+            for iC = 1:nKDconst
+                % Extract the bodies for this constraint
+                bodyI = obj.myConstraints{iC}.myBodyI;
+                bodyJ = obj.myConstraints{iC}.myBodyJ;
+                
+                % Compute phiPartialR
+                time = obj.myTime;
+                phiPartialRFlag = 1;
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, phiPartialRFlag, 0);
+                phiR = obj.myConstraints{iC}.myPhiPartialR;
+                
+                % If one of the bodies in the system is the ground adjust
+                % the body numbers accordingly.
+                if (obj.myBodyIsGround == 1)
+                    if (obj.myBodies{bodyI}.myIsGround == 1)
+                        % Only care about bodyJ in this case.
+                        % Need to decrease body number by 1 to properly
+                        % populate the Jacobian. This only works because I
+                        % am forcing the ground to be body 1.
+                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR;
+                        
+                    elseif (obj.myBodies{bodyJ}.myIsGround == 1)
+                        % Only care about bodyI in this case.
+                        % Need to decrease body number by 1 to properly
+                        % populate the Jacobian.
+                        phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR;
+                        
+                    else
+                        % Include both bodyI and bodyJ in this case because
+                        % neither is the ground, but still decrease body
+                        % number by 1.
+                        % Populate the partial derivative w.r.t. position.
+                        phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR(1:3);
+                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR(4:6);                        
+                    end
+                else
+                    % Populate the partial derivative w.r.t. position.
+                    phiPartialR(iC,(3*bodyI - 2):3*bodyI) = phiR(1:3);
+                    phiPartialR(iC,(3*bodyJ - 2):3*bodyJ) = phiR(4:6);
+                end
+            end
+            obj.myPhiPartialR = phiPartialR;
+           
+        end
+        function obj = computePhiPartialP(obj)
+            % Compute partial derivative of the constraint matrix w.r.t
+            % orientation (P)
+            
+            % Seed the Jacobian. There will be 4 less columns in the
+            % Jacobian if one of the bodies is the ground.
+            nBodies = obj.myNumBodies;
+            nKDconst = obj.myNumConstraints;
+            
+            if (obj.myBodyIsGround == 1)
+                phiPartialP = zeros(nKDconst, 4*(nBodies - 1));
+            else
+                phiPartialP = zeros(nKDconst, 4*nBodies);
+            end
+            
+           % Loop through each kinematic and driving constraint. Compute
+            % phiPartialR for each. Insert these the
+            % correct location in the Jacobian. This location depends on
+            % which bodies are involved in the constraint. If one of the
+            % bodies is the ground, then it will not appear in the
+            % Jacobian.
+            for iC = 1:nKDconst
+                % Extract the bodies for this constraint
+                bodyI = obj.myConstraints{iC}.myBodyI;
+                bodyJ = obj.myConstraints{iC}.myBodyJ;
+                
+                % Compute phiPartialR
+                time = obj.myTime;
+                phiPartialPFlag = 1;
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, 0, phiPartialPFlag);
+                phiP = obj.myConstraints{iC}.myPhiPartialP;
+                
+                % If one of the bodies in the system is the ground adjust
+                % the body numbers accordingly.
+                if (obj.myBodyIsGround == 1)
+                    if (obj.myBodies{bodyI}.myIsGround == 1)
+                        % Only care about bodyJ in this case.
+                        % Need to decrease body number by 1 to properly
+                        % populate the Jacobian. This only works because I
+                        % am forcing the ground to be body 1.
+                        phiPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiP;
+                        
+                    elseif (obj.myBodies{bodyJ}.myIsGround == 1)
+                        % Only care about bodyI in this case.
+                        % Need to decrease body number by 1 to properly
+                        % populate the Jacobian.
+                        phiPartialP(iC,(4*(bodyI-1) - 3):4*(bodyI-1)) = phiP;
+                        
+                    else
+                        % Include both bodyI and bodyJ in this case because
+                        % neither is the ground, but still decrease body
+                        % number by 1.
+                        % Populate the partial derivative w.r.t. position.
+                        phiPartialP(iC,(4*(bodyI-1) - 3):4*(bodyI-1)) = phiP(1:4);
+                        phiPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiP(5:8);                        
+                    end
+                else
+                    % Populate the partial derivative w.r.t. position.
+                    phiPartialP(iC,(4*bodyI - 3):4*bodyI) = phiP(1:4);
+                    phiPartialP(iC,(4*bodyJ - 3):4*bodyJ) = phiP(5:8);
+                end
+            end
+            obj.myPhiPartialP  = phiPartialP;
+        end
+        
         function obj = computeInvDynRHS(obj)
             % Compute the RHS of the linear system of equations for the
             % inverse dynamics analysis
@@ -264,7 +483,6 @@ classdef multibodySystem < handle
             % Obtain JpMatrix
             obj.computeJpMatrixTotal();
             JpMatrix = obj.myJpMatrixTotal;
-            
             
             % Compute force related terms of RHS
             forceTerms = massMatrix*rDDotVec - forceVec;
@@ -719,7 +937,7 @@ classdef multibodySystem < handle
             % Compute the jacobian of phiFull (i.e. partial derivative of
             % phiFull w.r.t. the generalized coordinates)
             
-            % Seed the Jacobian. There will be 7 less columns and one less in the
+            % Seed the Jacobian. There will be 7 less columns and one less row in the
             % Jacobian if one of the bodies is the ground.
             nBodies = obj.myNumBodies;
             nKDconst = obj.myNumConstraints;
