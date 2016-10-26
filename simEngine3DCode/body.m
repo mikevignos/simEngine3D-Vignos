@@ -33,6 +33,12 @@ classdef body < handle
         myPDotTotal = zeros(4,1); % First time derivate of euler parameters of body across all time steps
         myPDDotTotal = zeros(4,1); % Second time derivate of euler parameters of body across all time steps
         myForces; % Forces applied to this body.
+        myConstraintForces; % Forces applied to this body due to each constraint in system.
+        myConstraintTorques; % Torques applied to this body due to each constraint in system.
+        myConstraintTorquesOmega; % Torques in r-omega formulation applied to this body due to each constraint in system.
+        myConstraintForcesTotal; % Forces applied to this body due to each constraint in system throughout the entire simulation
+        myConstraintTorquesTotal; % Torques applied to this body due to each constraint in system throughout the entire simulation.
+        myConstraintTorquesOmegaTotal; % Torques in r-omega formulation applied to this body due to each constraint in system throughout the entire simulation.
         myTorques; % Torques applied to this body.
         myTorqueHat; % torqueHat vector for this specific body. This value 
                      % depends on the current orientation of the body, so 
@@ -84,6 +90,63 @@ classdef body < handle
             obj.myPDDot = pDDot;
             obj.myRDDot = rDDot;
             obj.myTime = time;
+        end
+        function obj = convertConstraintTorques(obj)
+            % Convert the constraint torques from the r-p formulation to
+            % the r-omega formulation.
+            
+            torque = obj.myConstraintTorques;
+            
+            % Compute G for this body.
+            obj.computeGmatrix();
+            G = obj.myG;
+            
+            % Seed the new torque matrix
+            [~,nConst] = size(torque);
+            torqueOmega = zeros(3,nConst);
+            
+            for iC = 1:nConst
+                torqueOmega(:,iC) = 0.5*G*torque(:,iC);
+            end
+            obj.myConstraintTorquesOmega = torqueOmega;
+        end
+        function obj = computeConstraintTorques(obj,sys)
+            % Compute the torques acting on this body due to all of the
+            % constraints in the system
+            nConst = sys.myNumConstraints;
+            bodyNum = obj.myBodyNumber;
+            
+            % Compute Gmatrix for this body.
+            obj.computeGmatrix();
+            G = obj.myG;           
+            
+            % Loop through all of the constraints. If the constraint acts
+            % on this body, compute the torque acting on the body. If it
+            % does not, then just set the torque equal to [0 0 0]'.
+            % If the body is the ground, then set all the torques due to
+            % the constraints equal to zero.
+            torqueOmega = zeros(3,nConst);
+            if (obj.myIsGround == 1)
+                torqueOmega = zeros(3,nConst);
+            else
+                for iC = 1:nConst
+                    bodyI = sys.myConstraints{iC}.bodyI;
+                    bodyJ = sys.myConstraints{iC}.bodyJ;
+                    
+                    if (bodyNum == bodyI)
+                        tOmega = 0.5*G*sys.myConstraintTorques(:,iC);
+                        
+                    elseif (bodyNum == bodyJ)
+                    else
+                        torqueOmega(:,iC) = [0 0 0]';
+                    end
+                    
+                    
+                end
+            end
+            
+            obj.myCostraintTorques = torqueOmega;
+            
         end
         function obj = computeGmatrix(obj)
             % Compute the current G matrix for the body

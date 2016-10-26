@@ -28,17 +28,18 @@ classdef multibodySystem < handle
         myNu; % RHS of velocity equation for entire multibody system
         myGamma; % RHS of acceleration equation for entire multibody system
         myTime; % Current time within system.
-        myConstraintsLagrangeMultipliers; % Lagrange multipliers for constraints.
-        myConstraintTorques; % Forces due to constraints. Computed using Lagrange multipliers
-        myConstraintForces; % Torques due to constraints. Comuted using Lagrange multipleiers.
+        myTimeTotal; % Vector containing total time steps throughout simulation
+        myConstraintLagrangeMultipliers; % Lagrange multipliers for constraints.
         myPMatrix; % Euler parametrization constraint matrix
         myInvDynRHS; % RHS of inverse dynamics equations
         myInvDynMatrix; % Matrix that contains partial derivatives of constraints. This is the A matrix when solving Ax = b in inverse dynamics analysis.
+    
     end
     
     properties (Dependent)
         myNumBodies; % Number of bodies in the system
         myNumConstraints; % Number of kinematic and driving constraints in the system
+        myNumTimeSteps; % Number of time steps that have been completed in simulation.
         myMassMatrix; % Mass matrix for the entire system.
         myJMatrix; % Polar moment of inertia matrix for the entire system.
     end
@@ -167,7 +168,7 @@ classdef multibodySystem < handle
                 end
             end
         end
-        function obj = inverseDynamicsAnalysis(obj, startTime, endTime, timestep)
+        function obj = inverseDynamicsAnalysis(obj, startTime, endTime, timestep, displayFlag)
             % Perform an inverse dynamics analysis.
             %
             % Function inputs:
@@ -179,6 +180,11 @@ classdef multibodySystem < handle
             %
             % timestep : double
             %   Time step for analysis.
+            %
+            % displayFlag : int
+            %   Flag for user to indicate if they want to display when each
+            %   time step of analysis has been completed.
+            
             time = startTime:timestep:endTime;
             
             for iT = 1:length(time)
@@ -210,35 +216,115 @@ classdef multibodySystem < handle
                 % multiplier.
                 obj.computeConstraintForces();
                 obj.computeConstraintTorques();
+               
                 
                 % Store the current forces and torques for all the
                 % constraints
-                obj.storeConstraintForcesAndTorques(t); %%%% Finish this function.
+                obj.storeConstraintForcesAndTorques(t); 
                 
+                if (displayFlag == 1)
+                    disp(['Inverse dynamics analysis completed for ' num2str(t) ' sec']);
+                end
             end
                
             
         end
+        function obj = storeConstraintForcesAndTorques(obj,t)
+           % Store forces and torques that were computed for each constraint
+           % at this specific time step. The format of both of this
+           % matrices is 3nc x nTimesteps, where every three rows
+           % represents the forces or torques for a different constraint
+           % and each column is a different timestep.
+           nTimeSteps = obj.myNumTimeSteps;
+           nConst = obj.myNumConstraints;
+           nBodies = obj.myNumBodies;
+           
+           % Store time
+           obj.myTimeTotal(1,(nTimeSteps+1)) = t;
+           
+           % For each body, store the force and torque for this specific
+           % time step.
+           for iB = 1:nBodies
+               force = obj.myBodies{iB}.myConstraintForces;
+               torque = obj.myBodies{iB}.myConstraintTorques;
+               torqueOmega = obj.myBodies{iB}.myConstraintTorquesOmega;
+               forceVec = reshape(force,[3*nConst,1]);
+               torqueVec = reshape(torque,[4*nConst,1]);
+               torqueOmegaVec = reshape(torqueOmega,[3*nConst,1]);
+               
+               % Store forces and torques
+               obj.myBodies{iB}.myConstraintForcesTotal(:,(nTimeSteps+1)) = forceVec;
+               obj.myBodies{iB}.myConstraintTorquesTotal(:,(nTimeSteps+1)) = torqueVec;
+               obj.myBodies{iB}.myConstraintTorquesOmegaTotal(:,(nTimeSteps+1)) = torqueOmegaVec;
+           end
+        end
         function obj = computeConstraintForces(obj)
             % Compute the forces induced by each constraint.
-            
+            nConst = obj.myNumConstraints;
+            nBodies = obj.myNumBodies;
             lagrangeMults = obj.myConstraintLagrangeMultipliers;
             phiPartialR = obj.myPhiPartialR;
-            constraintForces = -phiPartialR'*lagrangeMults;
-            obj.myConstraintForces = constraintForces;   
+            
+            % Seed the constraint forces for all bodies
+            for iB = 1:nBodies
+                obj.myBodies{iB}.myConstraintForces = zeros(3,nConst);
+            end
+            
+            % For all bodies, extract the correct portion of
+            % phiPartialR, compute the force due to constraint iC on
+            % this body, and store this force at the body level. Ignore
+            % the body if it is the ground. The constraint torque will
+            % just remain all zeros for the ground.
+            for iC = 1:nConst
+                count = 1;
+                for iB = 1:nBodies
+                    if (obj.myBodies{iB}.myIsGround == 0)
+                        % Compute the constraint forces
+                        constraintForce = -phiPartialR(iC,(3*count-2):3*count)'*lagrangeMults(iC);
+                        obj.myBodies{iB}.myConstraintForces(:,iC) = constraintForce;
+                        count = count + 1;
+                    end
+                end
+            end
         end
         function obj = computeConstraintTorques(obj)
             % Compute the torques induced by each constraint
+            nConst = obj.myNumConstraints;
+            nBodies = obj.myNumBodies;
             lagrangeMults = obj.myConstraintLagrangeMultipliers;
             phiPartialP = obj.myPhiPartialP;
-            constraintTorques = -phiPartialP'*lagrangeMults;
-            obj.myConstraintTorques = constraintTorques; 
+
+            % Seed the constraint forces for all bodies
+            for iB = 1:nBodies
+                obj.myBodies{iB}.myConstraintTorques = zeros(4,nConst);
+            end
             
-        end
+            % For all bodies, extract the correct portion of
+            % phiPartialP, compute the torque due to constraint iC on
+            % this body, and store this torque at the body level. Ignore
+            % the body if it is the ground. The constraint torque will
+            % just remain all zeros for the ground.
+            for iC = 1:nConst
+                count = 1;
+                for iB = 1:nBodies
+                    if (obj.myBodies{iB}.myIsGround == 0)
+                        % Compute the constraint forces
+                        constraintTorque = -phiPartialP(iC,(4*count-3):4*count)'*lagrangeMults(iC);
+                        obj.myBodies{iB}.myConstraintTorques(:,iC) = constraintTorque;
+                        count = count + 1;
+                    end
+                end
+            end
+            
+            % Convert constraint torques from r-p formulation to r-omega
+            % formulation for each body
+            for iB = 1:nBodies
+                obj.myBodies{iB}.convertConstraintTorques();
+            end
+        end            
         function obj = computeLagrangeMultipliers(obj)
             % Compute the Lagrange multipliers that will be used for
             % computing the reaction force and torques
-            %
             
             % Compute the RHS for linear system of equations for inverse dynamics analysis
             obj.computeInvDynRHS();
@@ -585,6 +671,16 @@ classdef multibodySystem < handle
             % representing a different time step
             nBodies = obj.myNumBodies;
             for iB = 1:nBodies
+                % Store just this time step for the body.
+                obj.myBodies{iB}.myTime = time;
+                obj.myBodies{iB}.myR = r(:,iB);
+                obj.myBodies{iB}.myRDot = rDot(:,iB);
+                obj.myBodies{iB}.myRDDot = rDDot(:,iB);
+                obj.myBodies{iB}.myP = p(:,iB);
+                obj.myBodies{iB}.myPDot = pDot(:,iB);
+                obj.myBodies{iB}.myPDDot = pDDot(:,iB);
+                
+                % Add this to the total time steps for all bodies.
                 nTimeSteps = obj.myBodies{iB}.myNumTimeSteps;
                 obj.myBodies{iB}.myTimeTotal(nTimeSteps + 1) = time;
                 obj.myBodies{iB}.myRTotal(:,nTimeSteps + 1) = r(:,iB);
@@ -1457,6 +1553,10 @@ classdef multibodySystem < handle
                     myJMatrix((3*iB-2):3*iB,(3*iB-2):3*iB) = bodyJMatrix;
                 end
             end
+        end
+        function myNumTimeSteps = get.myNumTimeSteps(obj)
+            % Compute current number of time steps completed for simulation
+            myNumTimeSteps = length(obj.myTimeTotal);
         end
     end
     
