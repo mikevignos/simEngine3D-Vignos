@@ -154,132 +154,21 @@ figure
 hold on
 plot(time,torqueDriving(1,:))
 plot(time,torqueDriving(2,:))
+plot(time,torqueDriving(3,:));
+xlabel('Time (sec)')
+ylabel('Torque (N*m)')
+% h2.Color = 'g';
+legend('TorqueX','TorqueY','TorqueZ')
+savefig('A7P1_TorqueVsTime.png')
+
+figure
+hold on
+plot(time,torqueDriving(1,:))
+plot(time,torqueDriving(2,:))
 [ax, h1, h2] = plotyy(time,torqueDriving(3,:),time,theta);
 xlabel('Time (sec)')
 ylabel(ax(1),'Torque (N*m)')
 ylabel(ax(2),'Theta (rad)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ','Theta')
-
-%% Perform kinematics analysis
-% if 1
-%     timeStart = 0;
-%     timeEnd = 1;
-%     timeStep = 10^-3;
-%     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, 0);
-%     % Save the multibody system since it contains the results
-%     save('multibodySystem_A6P3.mat','sys');
-%     
-% else
-%     load('multibodySystem_A6P3.mat')
-% end
-% 
-% 
-% %% Create plots for origin of body 2 ref frame
-% time = sys.myBodies{2}.myTimeTotal;
-% rOprime = sys.myBodies{2}.myRTotal;
-% rDotOprime = sys.myBodies{2}.myRDotTotal;
-% rDDotOprime = sys.myBodies{2}.myRDDotTotal;
-% pOprime = sys.myBodies{2}.myPTotal;
-% pDotOprime = sys.myBodies{2}.myPDotTotal;
-% pDDotOprime = sys.myBodies{2}.myPDDotTotal;
-% 
-% figure
-% subplot(3,1,1)
-% hold on
-% plot(time,rOprime(1,:))
-% plot(time,rOprime(2,:))
-% plot(time,rOprime(3,:))
-% title('Position of point O-prime')
-% xlabel('Time (sec)')
-% ylabel('Position (m)')
-% legend('X','Y','Z')
-% hold off
-% 
-% subplot(3,1,2)
-% hold on
-% plot(time,rDotOprime(1,:))
-% plot(time,rDotOprime(2,:))
-% plot(time,rDotOprime(3,:))
-% title('Velocity of point O-prime')
-% xlabel('Time (sec)')
-% ylabel('Velocity (m/s)')
-% legend('X','Y','Z')
-% hold off
-% 
-% subplot(3,1,3)
-% hold on
-% plot(time,rDDotOprime(1,:))
-% plot(time,rDDotOprime(2,:))
-% plot(time,rDDotOprime(3,:))
-% title('Acceleration of point O-prime')
-% xlabel('Time (sec)')
-% ylabel('Acceleration (m/s^2)')
-% legend('X','Y','Z')
-% hold off
-% 
-% figure
-% hold on
-% plot(time,rDDotOprime(1,:))
-% plot(time,rDDotOprime(2,:))
-% plot(time,rDDotOprime(3,:))
-% axis([0 10 -6 6])
-% title('Acceleration of point O-prime -- Zoomed In')
-% xlabel('Time (sec)')
-% ylabel('Acceleration (m/s^2)')
-% legend('X','Y','Z')
-% hold off
-% 
-% %% Compute position, velocity, and acceleration of point Q
-% sBar = [-2 0 0]';
-% rQ = zeros(3,length(time));
-% rQdot = zeros(3,length(time));
-% rQddot = zeros(3,length(time));
-% for i = 1:length(time)
-%     p = pOprime(:,i);
-%     pDot = pDotOprime(:,i);
-%     pDDot = pDDotOprime(:,i);
-%     
-%     A = simEngine3DUtilities.p2A(p);
-%     B = simEngine3DUtilities.computeBmatrix(p,sBar);
-%     Bdot = simEngine3DUtilities.computeBmatrix(pDot,sBar);
-%     rQ(:,i) = rOprime(:,i) + A*sBar;
-%     rQdot(:,i) = rDotOprime(:,i) + B*pDot;
-%     rQddot(:,i) = rDDotOprime(:,i) + B*pDDot + Bdot*pDot;
-% end
-% 
-% 
-% %% Create plots for point Q
-% figure
-% subplot(3,1,1)
-% hold on
-% plot(time,rQ(1,:))
-% plot(time,rQ(2,:))
-% plot(time,rQ(3,:))
-% title('Position of point Q')
-% xlabel('Time (sec)')
-% ylabel('Position (m)')
-% legend('X','Y','Z')
-% hold off
-% 
-% subplot(3,1,2)
-% hold on
-% plot(time,rQdot(1,:))
-% plot(time,rQdot(2,:))
-% plot(time,rQdot(3,:))
-% title('Velocity of point Q')
-% xlabel('Time (sec)')
-% ylabel('Velocity (m/s)')
-% legend('X','Y','Z')
-% hold off
-% 
-% subplot(3,1,3)
-% hold on
-% plot(time,rQddot(1,:))
-% plot(time,rQddot(2,:))
-% plot(time,rQddot(3,:))
-% title('Acceleration of point Q')
-% xlabel('Time (sec)')
-% ylabel('Acceleration (m/s^2)')
-% legend('X','Y','Z')
-% hold off
+savefig('A7P1_TorqueAndThetaVsTime.png')
