@@ -208,7 +208,7 @@ if 0
 end
 
 %% Problem 4
-if 1
+if 0
     % Define parameters
     stepSize = 0.01;
     time = 0:stepSize:20;
@@ -395,7 +395,41 @@ if 1
         hold off
     end
     
+end
+
+%% Problem 5
+if 1
+    % Set various parameters
+    y0 = 1;
+    t0 = 1;
+    tEnd = 10;
     
+    % Set necessary functions
+    yFunc = @(t)(1./t + 1./t.^2.*tan(1./t + pi - 1));
+    gFunc = @(yn, ynMinus, h, t)(yn - ynMinus + h*yn^2 + h/t.^4);
+    gJacobianFunc = @(yn, h, t)(1 + 2*h*yn);
+    
+    % Perform backward Euler with varying step size
+    hVec = [0.1 0.05 0.01 0.001 0.0001 0.00001];
+    error = zeros(1,length(hVec));
+    for iH = 1:length(hVec)
+        h = hVec(iH);
+        
+        % Compute actual solution
+        time = t0:h:tEnd;
+        yActual = yFunc(time);
+        yBE = backwardEuler( gFunc, gJacobianFunc, y0, t0, tEnd, h);
+        
+        % Compute error at the final time step for this value of h
+        error(iH) = abs(yActual(end) - yBE(end));
+    end
+    
+    % Create convergence plot
+    figure
+    plot(log(hVec),log(error),'bs-')
+    xlabel('log(h)')
+    ylabel('log(error) @ t = 10')
+    title('Convergence Plot for Backward Euler Method')
     
     
 end
