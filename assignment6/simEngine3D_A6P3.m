@@ -111,7 +111,7 @@ isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Perform kinematics analysis
-if 1
+if 0
     timeStart = 0;
     timeEnd = 10;
     timeStep = 10^-3;

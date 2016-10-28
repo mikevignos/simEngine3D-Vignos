@@ -65,11 +65,11 @@ view([90 0])
 % joints from the basic constraints
 
 % CD constraint for x-value of point Q
-a1.bodyJ = 1;
-a1.bodyI = 2;
+a1.bodyI = 1;
+a1.bodyJ = 2;
 a1.coordVec = [1 0 0]';
-a1.sBarIP = [-2 0 0]';
-a1.sBarJQ = [0 0 0]';
+a1.sBarJQ = [-2 0 0]';
+a1.sBarIP = [0 0 0]';
 a1.ft = @(t)0;
 a1.ftDot =  @(t)0;
 a1.ftDDot =  @(t)0;
@@ -92,10 +92,10 @@ isKinematic = 1;
 sys.addBasicConstraint(isKinematic,'cd',a3);
 
 % DP1 constraint between Y and z'
-a4.bodyJ = 1;
-a4.bodyI = 2;
-a4.aBarJ = [0 1 0]';
-a4.aBarI = [0 0 1]';
+a4.bodyI = 1;
+a4.bodyJ = 2;
+a4.aBarI = [0 1 0]';
+a4.aBarJ = [0 0 1]';
 a4.ft = @(t)0;
 a4.ftDot = @(t)0;
 a4.ftDDot = @(t)0;
@@ -103,10 +103,10 @@ a4.constraintName = 'DP1 b/w Y and zPrime';
 sys.addBasicConstraint(isKinematic,'dp1',a4);
 
 % DP1 constraint between Z and z'
-a5.bodyJ = 1;
-a5.bodyI = 2;
-a5.aBarJ = [0 0 1]';
+a5.bodyI = 1;
+a5.bodyJ = 2;
 a5.aBarI = [0 0 1]';
+a5.aBarJ = [0 0 1]';
 a5.ft = @(t)0;
 a5.ftDot = @(t)0;
 a5.ftDDot = @(t)0;
@@ -115,10 +115,10 @@ sys.addBasicConstraint(isKinematic,'dp1',a5);
 
 %% Add driving constraint to model
 % DP1 constraint between -Z and y'
-a6.bodyJ = 1;
-a6.bodyI = 2;
-a6.aBarJ = [0 0 -1]';
-a6.aBarI = [0 1 0]';
+a6.bodyI = 1;
+a6.bodyJ = 2;
+a6.aBarI = [0 0 -1]';
+a6.aBarJ = [0 1 0]';
 a6.ft = @(t)cos((pi*cos(2*t))/4 + pi/2);
 a6.ftDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4 + pi/2))/2);
 a6.ftDDot = @(t)(pi*cos(2*t)*sin((pi*cos(2*t))/4 + pi/2) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4 + pi/2))/4);
@@ -127,7 +127,7 @@ isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Perform inverse dynamics analysis
-if 0
+if 1
     timeStart = 0;
     timeEnd = 10;
     timeStep = 10^-3; 

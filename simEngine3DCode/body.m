@@ -26,12 +26,12 @@ classdef body < handle
         myB; % Current B matrix for body
         myBDot; % Time derivative of B matrix
         myTimeTotal; % Vector containing all time steps traversed in analysis
-        myRTotal = zeros(3,1); % Position of body across all time steps
-        myRDotTotal = zeros(3,1); % Velocity of body across all time steps
-        myRDDotTotal = zeros(3,1); % Acceleration of body across all time steps
-        myPTotal = zeros(4,1); % Euler parameters of body across all time steps
-        myPDotTotal = zeros(4,1); % First time derivate of euler parameters of body across all time steps
-        myPDDotTotal = zeros(4,1); % Second time derivate of euler parameters of body across all time steps
+        myRTotal; % Position of body across all time steps
+        myRDotTotal; % Velocity of body across all time steps
+        myRDDotTotal; % Acceleration of body across all time steps
+        myPTotal; % Euler parameters of body across all time steps
+        myPDotTotal; % First time derivate of euler parameters of body across all time steps
+        myPDDotTotal; % Second time derivate of euler parameters of body across all time steps
         myForces; % Forces applied to this body.
         myConstraintForces; % Forces applied to this body due to each constraint in system.
         myConstraintTorques; % Torques applied to this body due to each constraint in system.
@@ -49,9 +49,9 @@ classdef body < handle
         myNumPoints; % Number of points defined on body
         myNumVectors; % Number of vectors defined on body
         myNumTimeSteps; % Total number of time steps
-        myNumForces = 0; % Number of active forces being applied to this body.
-        myNumTorques = 0; % Number of active toruqes being appliced to this body.
-        myTotalForce = zeros(3,1); % 3x1 vector containing the sum of all the forces applied to the body.
+        myNumForces ; % Number of active forces being applied to this body.
+        myNumTorques; % Number of active toruqes being appliced to this body.
+        myTotalForce; % 3x1 vector containing the sum of all the forces applied to the body.
     end
     
     methods
@@ -75,10 +75,19 @@ classdef body < handle
             % Add the force of gravity to this body. This currently assumes
             % that gravity acts in the -Z direction.
             if (isGround == 0)
-                force = [0 0 -9.8*mass]';
+                force = [0 0 -9.81*mass]';
                 sBar = [0 0 0]';
                 obj.addForce(force, sBar, 'Force of Gravity');
             end
+            
+            % Set intial values
+            obj.myRTotal = zeros(3,1); % Position of body across all time steps
+            obj.myRDotTotal = zeros(3,1); % Velocity of body across all time steps
+            obj.myRDDotTotal = zeros(3,1); % Acceleration of body across all time steps
+            obj.myPTotal = zeros(4,1); % Euler parameters of body across all time steps
+            obj.myPDotTotal = zeros(4,1); % First time derivate of euler parameters of body across all time steps
+            obj.myPDDotTotal = zeros(4,1);
+            
         end
         
         function obj = updateBody(obj, p, pDot, pDDot, r, rDot, rDDot, time)
