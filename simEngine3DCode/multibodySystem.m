@@ -33,7 +33,9 @@ classdef multibodySystem < handle
         myPMatrix; % Euler parametrization constraint matrix
         myInvDynRHS; % RHS of inverse dynamics equations
         myInvDynMatrix; % Matrix that contains partial derivatives of constraints. This is the A matrix when solving Ax = b in inverse dynamics analysis.
-    
+        myInitCondFlag; % Flag indicating if the initial conditions satisfy the level zero and level one constraints.
+        myLHSforEOM; % Matrix for the left hand side of the matrix-form of the Newton-Euler equations of motion.
+        myRHSforEOM; % Matrix for the right hand side of the matrix-form of the Newton-Euler equations of motion.
     end
     
     properties (Dependent)
@@ -166,6 +168,289 @@ classdef multibodySystem < handle
                 if (displayFlag == 1)
                     disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
                 end
+            end
+        end
+        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, displayFlag)
+            % Perform a dynamics analysis.
+            %
+            % Function inputs:
+            % startTime : double
+            %   Start time for analysis.
+            %
+            % endTime : double
+            %   End time for analysis
+            %
+            % timestep : double
+            %   Time step for analysis.
+            %
+            % displayFlag : int
+            %   Flag for user to indicate if they want to display when each
+            %   time step of analysis has been completed.
+            
+            % Compute time vector for analysis
+            time = startTime:timestep:endTime;
+            
+            for iT = 1:length(time)
+                t = time(iT);
+                
+                if (iT == 1)
+                    % For first iteration, make sure the initial conditions
+                    % satisfy the level zero and level one constraint
+                    % equations.
+                    obj.checkInitialConditions();
+                    if (obj.myInitCondFlag == 0)
+                        disp('Initial conditions do not satisfy constraint equations. Please correct this.');
+                        break;
+                    end                  
+                    
+                    % Also for the first iteration, compute qDDot and the
+                    % Lagrange multipliers for the initial position and
+                    % velocity conditions.
+                    obj.solveFirstStepDynamicsAnalysis(t);
+                    
+                else
+                    % If this is not the first time step use a BDF method 
+                    % to perform numerical integration and get the
+                    % accelerations for the first time step.
+                    obj.performNumericalDynamicsAnalysis(t);
+                    
+                    % Use the accelerations computed using the BDF method
+                    % to get the velocity and position of the body.
+                    
+                end
+                
+                % Store the current position, velocity, and acceleration of
+                % the body for this time step
+                
+                % Compute the reaction forces from the Lagrange multipliers
+                
+                % Store the reaction forces
+                
+                
+                
+                
+            end
+        end
+        function obj = performNumericalDynamicsAnalysis(obj, time)
+            % For this current time step, use a numerical integration
+            % technique to compute the position, velocity, accelerations, 
+            % and Lagrange multipliers.
+            %
+            % Function inputs : 
+            % time : double
+            %   Time for current timestep
+            
+            % Set variables for convergence
+            
+            % Set the intial guess for the position, velocity,
+            % acceleration, and lagrange multipliers.
+            
+            
+        end
+        function obj = solveFirstStepDynamicsAnalysis(obj, time)
+            % Compute the second time derivative of the generalized
+            % coordinates and the Lagrange multipliers for the constraint
+            % forces for the first time step in a dynamics analysis.
+            
+            % Compute left hand side of equations of motion
+            obj.computeLHSforEOM();
+            LHSforEOM = obj.myLHSforEOM;
+            
+            % Compute right hand side of equations of motion
+            obj.computeRHSforEOM();
+            RHSforEOM = obj.myRHSforEOM;
+            
+            % Solve for accelerations
+            solution = LHSforEOM\RHSforEOM;
+            
+            % Divide the solution matrix into qDDot and the Lagrange
+            % multipliers
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            nConst = obj.myNumConstraints;          
+            
+            qDDot = solution(1:7*nBodies);
+            lagrangeMultsP = solution((7*nBodies + 1):(8*nBodies));
+            constraintLagrangeMults = solution((8*nBodies + 1):(8*nBodies + nConst));
+            %%%%%%%%%%%%
+            
+            % Parse qDDot into rDDot and pDDot. If one of the bodies is the
+            % ground you need to put rDDot and pDDot for the ground back into
+            % the results, just so we maintain the correct number of total
+            % bodies in the system.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                rDDotTemp = qDDot(1:3*nBodies);
+                pDDotTemp = qDDot((3*nBodies + 1):7*nBodies);
+                
+                rDDotGround = [0 0 0]';
+                pDDotGround = [0 0 0 0]';
+                
+                rDDot = [rDDotGround; rDDotTemp];
+                pDDot = [pDDotGround; pDDotTemp];
+            else
+                nBodies = obj.myNumBodies;
+                rDDot = qDDot(1:3*nBodies);
+                pDDot = qDDot((3*nBodies + 1):7*nBodies);
+            end
+
+            % Reshape into a matrix
+            rDDotMatrix = reshape(rDDot,[3 obj.myNumBodies]);
+            pDDotMatrix = reshape(pDDot, [4 obj.myNumBodies]);
+            
+            % Update the accelerations
+            obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);
+            
+            % Store the constraint lagrange multipliers
+            obj.myConstraintLagrangeMultipliers = constraintLagrangeMults;
+        end
+        function obj = computeLHSforEOM(obj)
+            % Compute the left hand side for the matrix representation of the
+            % Newton-Euler form of the equations of motion.
+            
+            % Extract mass matrix
+            massMatrix = obj.myMassMatrix;
+            
+            % Compute Jp matrix
+            obj.computeJpMatrixTotal();
+            JpMatrix = obj.myJpMatrixTotal;
+            
+            % Extract Pmatrix, phiPartialR, and phiPartialP. These were
+            % computed when performing the initial condition check in the
+            % previous step so save some time by not recomputing them.
+            phiPartialR = obj.myPhiPartialR;
+            phiPartialP = obj.myPhiPartialP;
+            Pmatrix = obj.myPMatrix;
+            
+            % Determine number of bodies and number of constraints
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            nConst = obj.myNumConstraints;
+            
+            % Matrix Assemble!!!
+            LHSmatrix = [massMatrix, zeros(3*nBodies,4*nBodies), zeros(3*nBodies,nBodies), phiPartialR';
+                zeros(4*nBodies,3*nBodies), JpMatrix, Pmatrix', phiPartialP';
+                zeros(nBodies,3*nBodies), Pmatrix, zeros(nBodies,nBodies), zeros(nBodies,nConst);
+                phiPartialR, phiPartialP, zeros(nConst,nBodies), zeros(nConst,nConst)];
+            obj.myLHSforEOM = LHSmatrix;
+        end
+        function obj = computeRHSforEOM(obj)
+            % Compute the right hand side for the matrix-form of the
+            % Newton-Euler equations of motion
+            
+            % Compute the total external force acting on the system
+            obj.computeForceVector();
+            forceVector = obj.myForceVector;
+            
+            % Compute total external torque acting on the system
+            obj.computeTorqueHatVector();
+            tauHat = obj.myTorqueHatVector;
+            
+            % Compute gamma total, which contains gamma for the Euler
+            % parameter normalization constraints and gamma for the
+            % kinematic and driving constraints.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+            else
+                nBodies = obj.myNumBodies;
+            end
+            obj.computeGamma();
+            gamma = obj.myGamma;
+            gammaP = gamma(1:nBodies);
+            gammaHat = gamma((nBodies + 1):end);
+            
+            % Assemble RHS vector
+            RHSvector = [forceVector;
+                tauHat;
+                gammaP;
+                gammaHat];
+            obj.myRHSforEOM = RHSvector;
+        end
+        function obj = checkInitialConditions(obj)
+            % Check initial conditions of a dynamics analysis to make sure
+            % they satisfy the constraint equations
+            
+            % Compute phi full and check to make sure it equals (approximately) zero.
+            obj.computePhiFull();
+            if (abs(norm(obj.myPhiFull)) > 10^-9)
+                disp('Constraint matrix not equal to zero in initial pose.');
+                phiFullFlag = 0;
+            else
+                phiFullFlag = 1;
+            end
+            
+            % Check Euler parameter normalization constraint to make sure
+            % it is zero. PhiP was already computed as part of phiFull so
+            % you can just pull it.
+            if (abs(norm(obj.myPhiP)) > 10^-9)
+                disp('Euler parameter normalization constraint not satisified in initial pose.')
+                eulerParamConstFlag = 0;
+            else
+                eulerParamConstFlag = 1;
+            end
+            
+            % Check the velocity constraint.
+            % Compute necessary parameters.
+            obj.computePhiPartialR();
+            obj.computePhiPartialP();
+            obj.computeNu();
+            
+            % Extract necessary parameters.
+            phiPartialR = obj.myPhiPartialR;
+            phiPartialP = obj.myPhiPartialP;
+            nu = obj.myNu;
+            rDot = obj.myRDot;
+            pDot = obj.myPDot;
+            
+            % Vectorize rDot and pDot because they are currently in matrix
+            % form.
+            if (obj.myBodyIsGround == 1)
+                nBodies = obj.myNumBodies - 1;
+                
+                % rDot and pDot include the ground so remove them.
+                rDot(:,1) = [];
+                pDot(:,1) = [];
+            else
+                nBodies = obj.myNumBodies;
+            end
+            rDotVec = reshape(rDot,[3*nBodies,1]);
+            pDotVec = reshape(pDot,[4*nBodies,1]);
+            
+            % Extract the portion of nu that relates to the constraints
+            nuConst = nu(1:obj.myNumConstraints); 
+            
+            % Check to ensure this constraint is satisfied
+            check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
+            if (abs(norm(check)) > 10^-9)
+                disp('Velocity constraint not satisified in initial pose.')
+                velocityConstFlag = 0;
+            else
+                velocityConstFlag = 1;
+            end
+            
+            % Check that the Euler parameter velocity normalization
+            % constraint is satisfied.
+            obj.computePMatrix();
+            Pmatrix = obj.myPMatrix;
+            
+            check2 = Pmatrix*pDotVec;
+            if (abs(norm(check2)) > 10^-9)
+                disp('Euler parameter velocity normalization constraint is not satisified in initial pose.')
+                eulerParamVelConstFlag = 0;
+            else
+                eulerParamVelConstFlag = 1;
+            end
+
+            % Check to see if any of the flags are zero. If they are, one
+            % of the constraints was not satisfied
+            if (phiFullFlag == 0) || (eulerParamConstFlag == 0) || (velocityConstFlag == 0) || (eulerParamVelConstFlag == 0)
+                obj.myInitCondFlag = 0;
             end
         end
         function obj = inverseDynamicsAnalysis(obj, startTime, endTime, timestep, displayFlag)
@@ -938,7 +1223,7 @@ classdef multibodySystem < handle
             rDDotMatrix = reshape(rDDot,[3 obj.myNumBodies]);
             pDDotMatrix = reshape(pDDot, [4 obj.myNumBodies]);
             
-            % Update the velocities
+            % Update the accelerations
             obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);
         end
         function obj = computePhiFull(obj)
