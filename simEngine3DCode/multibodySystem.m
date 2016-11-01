@@ -30,16 +30,29 @@ classdef multibodySystem < handle
         myTime; % Current time within system.
         myTimeTotal; % Vector containing total time steps throughout simulation
         myConstraintLagrangeMultipliers; % Lagrange multipliers for constraints.
+        myEulerParamLagrangeMultipliers; % Lagrange multipliers for Euler parameter normalization constraints.
         myPMatrix; % Euler parametrization constraint matrix
         myInvDynRHS; % RHS of inverse dynamics equations
         myInvDynMatrix; % Matrix that contains partial derivatives of constraints. This is the A matrix when solving Ax = b in inverse dynamics analysis.
         myInitCondFlag; % Flag indicating if the initial conditions satisfy the level zero and level one constraints.
         myLHSforEOM; % Matrix for the left hand side of the matrix-form of the Newton-Euler equations of motion.
         myRHSforEOM; % Matrix for the right hand side of the matrix-form of the Newton-Euler equations of motion.
+        myRGuessTotal; % 3n x M matrix containing the positions for numerical integration in dynamics analysis.
+                       % n = Number of bodies (not including ground)
+                       % M = Number of iterations used for the numerical
+                       % integration.
+        myRDotGuessTotal; % 3n x M matrix containing the velocities for numerical integration in dynamics analysis.      
+        myRDDotGuessTotal; % 3n x M matrix containing the accelerations for numerical integration in dynamics analysis.      
+        myPGuessTotal; % 4n x M matrix containing the Euler parameters for numerical integration in dynamics analysis.
+        myPDotGuessTotal; % 4n x M matrix containing the 1st time derivative of the Euler parameters for numerical integration in dynamics analysis.
+        myPDDotGuessTotal; % 4n x M matrix containing the 2nd time derivative of the Euler parameters for numerical integration in dynamics analysis.
     end
     
     properties (Dependent)
         myNumBodies; % Number of bodies in the system
+        myNumBodiesMinusGround; % Number of bodies in the system, not 
+                                % including the ground. If there is not 
+                                % ground in the system, myNumBodiesMinusGround = myNumBodies.
         myNumConstraints; % Number of kinematic and driving constraints in the system
         myNumTimeSteps; % Number of time steps that have been completed in simulation.
         myMassMatrix; % Mass matrix for the entire system.
@@ -206,13 +219,13 @@ classdef multibodySystem < handle
                     % Also for the first iteration, compute qDDot and the
                     % Lagrange multipliers for the initial position and
                     % velocity conditions.
-                    obj.solveFirstStepDynamicsAnalysis(t);
+                    obj.solveFirstStepDynamicsAnalysis(t, timestep);
                     
                 else
                     % If this is not the first time step use a BDF method 
                     % to perform numerical integration and get the
                     % accelerations for the first time step.
-                    obj.performNumericalDynamicsAnalysis(t);
+                    obj.performNumericalIntegrationDynamicsAnalysis(t);
                     
                     % Use the accelerations computed using the BDF method
                     % to get the velocity and position of the body.
@@ -231,7 +244,7 @@ classdef multibodySystem < handle
                 
             end
         end
-        function obj = performNumericalDynamicsAnalysis(obj, time)
+        function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepSize)
             % For this current time step, use a numerical integration
             % technique to compute the position, velocity, accelerations, 
             % and Lagrange multipliers.
@@ -239,11 +252,77 @@ classdef multibodySystem < handle
             % Function inputs : 
             % time : double
             %   Time for current timestep
+            %
+            % stepSize : double
+            %   Step size being used for current simulation.
             
             % Set variables for convergence
+            maxIter = 50;
+            tolerance = 10^-9;
             
-            % Set the intial guess for the position, velocity,
-            % acceleration, and lagrange multipliers.
+            % Set the intial guess for nu, the acceleration, and lagrange
+            % multipliers. These will be the state of the system at the
+            % end of the previous time step.
+            nBodies = obj.myNumBodiesMinusGround;
+            rDDotGuess = obj.myRDDot;
+            pDDotGuess = obj.myPDDot;
+            pLambdaGuess = obj.myEulerParamLagrangeMultipliers;
+            constLambdaGuess = obj.myConstraintLagrangeMultipliers;
+            obj.myNu = 0;
+            
+            % Remove the first column if there is a ground in the system
+            if (obj.myBodyIsGround == 1)
+                rDDotGuess(:,1) = [];
+                pDDotGuess(:,1) = [];
+            end
+            
+            % Transform these into vectors
+            obj.myRDDotGuessTotal(:,1) = reshape(rDDotGuess,[3*nBodies,1]);
+            obj.myPDDotGuessTotal(:,1) = reshape(pDDotGuess,[4*nBodies,1]);
+            
+            % Begin numerical integration
+            iter = 1;
+            while iter < maxIter
+                
+                % Compute position and velocities using BDF method
+                % Positions
+                order = 1;
+                positionFlag = 1;
+                obj.myRGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myRDDotGuessTotal, order, stepsize, positionFlag);
+                obj.myPGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myPDDotGuessTotal, order, stepsize, positionFlag);
+                
+                % Velocities
+                positionFlag = 0;
+                obj.myRDotGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myRDDotGuessTotal, order, stepsize, positionFlag);
+                obj.myPDotGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myPDDotGuessTotal, order, stepsize, positionFlag);
+                
+                % Compute residual in the system (compute g)
+                
+                % If this is the first iteration, compute the iteration
+                % matrix. If not, just use the iteration matrix from the
+                % first iteration
+                if (iter == 1)
+                    
+                else
+                end
+                
+                % Solve linear system to get the correction to this guess
+                correction = psi\-g;
+                
+                % Improve the guess
+                
+                % Check for convergence
+                if (norm(correction) < tolerance)
+                    break;  
+                end
+            
+            end
+            
+            % Compute the position and velocity again from these final values 
+            % of the acceleration.
+            
+            % Update the system state.
+            
             
             
         end
@@ -275,7 +354,6 @@ classdef multibodySystem < handle
             qDDot = solution(1:7*nBodies);
             lagrangeMultsP = solution((7*nBodies + 1):(8*nBodies));
             constraintLagrangeMults = solution((8*nBodies + 1):(8*nBodies + nConst));
-            %%%%%%%%%%%%
             
             % Parse qDDot into rDDot and pDDot. If one of the bodies is the
             % ground you need to put rDDot and pDDot for the ground back into
@@ -304,8 +382,9 @@ classdef multibodySystem < handle
             % Update the accelerations
             obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);
             
-            % Store the constraint lagrange multipliers
+            % Store the lagrange multipliers
             obj.myConstraintLagrangeMultipliers = constraintLagrangeMults;
+            obj.myEulerParamLagrangeMultipliers = lagrangeMultsP;
         end
         function obj = computeLHSforEOM(obj)
             % Compute the left hand side for the matrix representation of the
@@ -627,7 +706,9 @@ classdef multibodySystem < handle
             % Extract lagrange multipliers for constraints
             nConst = obj.myNumConstraints;
             lagrangeMultConst = lagrangeMultipliers(1:nConst);
+            lagrangeMultEulerParams = lagrangeMultipliers((nConst+1):end);
             obj.myConstraintLagrangeMultipliers = lagrangeMultConst;
+            obj.myEulerParamLagrangeMultipliers = lagrangeMultEulerParams;
             
         end
         function obj = computeInvDynMatrix(obj)
@@ -1542,10 +1623,18 @@ classdef multibodySystem < handle
             %   Matrix containing the current time derivative of the 3D
             %   positon of each body in the global reference frame
             %
+            % rDDotMatrix : 3 x N matrix, where N is the number of bodies
+            %   Matrix containing the current 2nd time derivative of the 3D
+            %   positon of each body in the global reference frame
+            %
             % pMatrix : 4 x N matrix, where N is the number of bodies
             %   Matrix containing the current Euler parameters of each body
             %
             % pDotMatrix : 4 x N matrix, where N is the number of bodies
+            %   Matrix containing the current time derivative of the
+            %   Euler parameters of each body
+            %
+            % pDDotMatrix : 4 x N matrix, where N is the number of bodies
             %   Matrix containing the current time derivative of the
             %   Euler parameters of each body
             
@@ -1768,6 +1857,16 @@ classdef multibodySystem < handle
         function myNumBodies = get.myNumBodies(obj)
             % Calculate number of bodies in system
             myNumBodies = length(obj.myBodies);
+        end
+        function myNumBodiesMinusGround = get.myNumBodiesMinusGround(obj)
+            % Calculate number of bodies in system minus the ground. If
+            % there is no ground in the system, myNumBodiesMinusGround =
+            % myNumBodies
+            if (obj.myBodyIsGround == 1)
+                myNumBodiesMinusGround = length(obj.myBodies) - 1;
+            else
+                myNumBodiesMinusGround = length(obj.myBodies);
+            end
         end
         function myNumConstraints = get.myNumConstraints(obj)
             % Calculate number of constraints in system
