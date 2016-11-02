@@ -151,11 +151,7 @@ classdef simEngine3DUtilities
             B1 = (e0*eye(3,3) + eTilde)*aBar;
             B2 = e*aBar' - (e0*eye(3,3) + eTilde)*aBarTilde;
             B = 2*[B1 B2];
-        end
-        function guess = BDFmethodStep(accelerations, order, stepsize, positionFlag)
-            
-        end
-        
+        end        
     end
     
 end

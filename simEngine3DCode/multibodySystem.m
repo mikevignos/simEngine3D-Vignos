@@ -37,15 +37,16 @@ classdef multibodySystem < handle
         myInitCondFlag; % Flag indicating if the initial conditions satisfy the level zero and level one constraints.
         myLHSforEOM; % Matrix for the left hand side of the matrix-form of the Newton-Euler equations of motion.
         myRHSforEOM; % Matrix for the right hand side of the matrix-form of the Newton-Euler equations of motion.
-        myRGuessTotal; % 3n x M matrix containing the positions for numerical integration in dynamics analysis.
-                       % n = Number of bodies (not including ground)
-                       % M = Number of iterations used for the numerical
-                       % integration.
-        myRDotGuessTotal; % 3n x M matrix containing the velocities for numerical integration in dynamics analysis.      
-        myRDDotGuessTotal; % 3n x M matrix containing the accelerations for numerical integration in dynamics analysis.      
-        myPGuessTotal; % 4n x M matrix containing the Euler parameters for numerical integration in dynamics analysis.
-        myPDotGuessTotal; % 4n x M matrix containing the 1st time derivative of the Euler parameters for numerical integration in dynamics analysis.
-        myPDDotGuessTotal; % 4n x M matrix containing the 2nd time derivative of the Euler parameters for numerical integration in dynamics analysis.
+        myRTotal; % 3n x M matrix containing the positions throughout a dynamics analysis
+                       % n = Number of bodies (including ground)
+                       % M = Number of time steps
+        myRDotTotal; % 3n x M matrix containing the velocities throughout a dynamics analysis   
+        myRDDotTotal; % 3n x M matrix containing the accelerations throughout a dynamics analysis
+        myPTotal; % 4n x M matrix containing the Euler parameters throughout a dynamics analysis
+        myPDotTotal; % 4n x M matrix containing the 1st time derivative of the Euler parameters throughout a dynamics analysis
+        myPDDotTotal; % 4n x M matrix containing the 2nd time derivative of the Euler parameters throughout a dynamics analysis
+        myGMatrix; % Matrix that is computed at each iteration of the numerical integration. Used to compute the correction factor.
+        myPsi; % Iteration matrix for Quasi-Newton method
     end
     
     properties (Dependent)
@@ -77,7 +78,7 @@ classdef multibodySystem < handle
                 if (bodyNumber == 1)
                     obj.myBodyIsGround = 1;
                 else
-                    disp('ERROR: The ground must be body 1. Please correct this.');
+                    error('ERROR: The ground must be body 1. Please correct this.');
                     clear isGround;
                 end
             end
@@ -183,7 +184,7 @@ classdef multibodySystem < handle
                 end
             end
         end
-        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, displayFlag)
+        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, displayFlag)
             % Perform a dynamics analysis.
             %
             % Function inputs:
@@ -195,6 +196,9 @@ classdef multibodySystem < handle
             %
             % timestep : double
             %   Time step for analysis.
+            %
+            % order : int
+            %   Order of the BDF method to be used, as specificed by the user
             %
             % displayFlag : int
             %   Flag for user to indicate if they want to display when each
@@ -219,32 +223,35 @@ classdef multibodySystem < handle
                     % Also for the first iteration, compute qDDot and the
                     % Lagrange multipliers for the initial position and
                     % velocity conditions.
-                    obj.solveFirstStepDynamicsAnalysis(t, timestep);
+                    obj.solveFirstStepDynamicsAnalysis(t);
                     
                 else
                     % If this is not the first time step use a BDF method 
                     % to perform numerical integration and get the
-                    % accelerations for the first time step.
-                    obj.performNumericalIntegrationDynamicsAnalysis(t);
-                    
-                    % Use the accelerations computed using the BDF method
-                    % to get the velocity and position of the body.
+                    % accelerations and lagrange mutlipliers for the first
+                    % time step. Within this function we will also compute
+                    % the current position and velocity.
+                    obj.performNumericalIntegrationDynamicsAnalysis(t, timestep, order, iT);
                     
                 end
                 
                 % Store the current position, velocity, and acceleration of
                 % the body for this time step
+                obj.storeSystemState();
                 
                 % Compute the reaction forces from the Lagrange multipliers
+                obj.computeConstraintForces();
+                obj.computeConstraintTorques();
                 
                 % Store the reaction forces
+                obj.storeConstraintForcesAndTorques(t);
                 
-                
-                
-                
+                if (displayFlag == 1)
+                    disp(['Dynamics analysis completed for t = ' num2str(t) ' sec.']);
+                end
             end
         end
-        function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepSize)
+        function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepsize, order, stepNumber)
             % For this current time step, use a numerical integration
             % technique to compute the position, velocity, accelerations, 
             % and Lagrange multipliers.
@@ -255,76 +262,311 @@ classdef multibodySystem < handle
             %
             % stepSize : double
             %   Step size being used for current simulation.
+            %
+            % order : int
+            %   Order of the BDF method to be used, as specificed by the user
+            %
+            % stepNumber : int
+            %   Current step number of the dynamics analysis.
             
             % Set variables for convergence
             maxIter = 50;
             tolerance = 10^-9;
             
-            % Set the intial guess for nu, the acceleration, and lagrange
+            % Set the intial guess for the accelerations and lagrange
             % multipliers. These will be the state of the system at the
             % end of the previous time step.
             nBodies = obj.myNumBodiesMinusGround;
-            rDDotGuess = obj.myRDDot;
-            pDDotGuess = obj.myPDDot;
+            nConst = obj.myNumConstraints;
+            
+            % If a ground is in the system, remove the ground from the
+            % guess of rDDot and pDDot
+            rDDotGuess = obj.myRDDotTotal(:,end);
+            pDDotGuess = obj.myPDDotTotal(:,end);
             pLambdaGuess = obj.myEulerParamLagrangeMultipliers;
             constLambdaGuess = obj.myConstraintLagrangeMultipliers;
-            obj.myNu = 0;
             
-            % Remove the first column if there is a ground in the system
+            % Remove the first body if there is a ground in the system
             if (obj.myBodyIsGround == 1)
-                rDDotGuess(:,1) = [];
-                pDDotGuess(:,1) = [];
+                rDDotNew = rDDotGuess(4:end,1);
+                rDDotGuess = rDDotNew;
+                
+                pDDotNew = pDDotGuess(5:end,1);
+                pDDotGuess = pDDotNew;
             end
             
-            % Transform these into vectors
-            obj.myRDDotGuessTotal(:,1) = reshape(rDDotGuess,[3*nBodies,1]);
-            obj.myPDDotGuessTotal(:,1) = reshape(pDDotGuess,[4*nBodies,1]);
-            
+            % Create the total guess vector
+            zGuess = [rDDotGuess;
+                pDDotGuess;
+                pLambdaGuess;
+                constLambdaGuess];
+                
+
             % Begin numerical integration
             iter = 1;
             while iter < maxIter
                 
-                % Compute position and velocities using BDF method
-                % Positions
-                order = 1;
-                positionFlag = 1;
-                obj.myRGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myRDDotGuessTotal, order, stepsize, positionFlag);
-                obj.myPGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myPDDotGuessTotal, order, stepsize, positionFlag);
+                % Update the Lagrange multipliers with current guess for
+                % the Lagrange multipliers
+                obj.myConstraintLagrangeMultipliers = constLambdaGuess;
+                obj.myEulerParamLagrangeMultipliers = pLambdaGuess;
                 
-                % Velocities
-                positionFlag = 0;
-                obj.myRDotGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myRDDotGuessTotal, order, stepsize, positionFlag);
-                obj.myPDotGuessTotal(:,iter) = simEngine3DUtilities.BDFmethodStep(obj.myPDDotGuessTotal, order, stepsize, positionFlag);
-                
-                % Compute residual in the system (compute g)
-                
-                % If this is the first iteration, compute the iteration
-                % matrix. If not, just use the iteration matrix from the
-                % first iteration
-                if (iter == 1)
-                    
+                % Compute position and velocities using BDF method. Within
+                % this function, the position, velocities, and
+                % accelerations of the system will be updated. Also,
+                % compute G matrix
+                if (order == 2) && (stepNumber <= 2)
+                    orderTemp = 1;
+                    obj.BDFmethodIteration(rDDotGuess, pDDotGuess, orderTemp, stepsize, time, stepNumber);
+                    obj.computeGMatrix(stepsize,orderTemp);
                 else
+                    obj.BDFmethodIteration(rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber);
+                    obj.computeGMatrix(stepsize,order);
                 end
+
+                % Extract residual in the system (g matrix)
+                gMatrix = obj.myGMatrix;
+                
+                % Compute the quasi-newton iteration matrix
+                obj.computeQuasiNewtonPsi();
+                psi = obj.myPsi;
                 
                 % Solve linear system to get the correction to this guess
-                correction = psi\-g;
+                correction = psi\-gMatrix;
                 
                 % Improve the guess
+                zNew = zGuess + correction;
+                zGuess = zNew;
+                
+                % Extract each component of zGuess
+                rDDotGuess = zGuess(1:3*nBodies,1);
+                pDDotGuess = zGuess((3*nBodies+1):(7*nBodies),1);
+                pLambdaGuess = zGuess((7*nBodies+1):(8*nBodies),1);
+                constLambdaGuess = zGuess((8*nBodies+1):(8*nBodies+nConst),1);
                 
                 % Check for convergence
                 if (norm(correction) < tolerance)
                     break;  
                 end
-            
+                
+                iter = iter + 1;
             end
             
-            % Compute the position and velocity again from these final values 
-            % of the acceleration.
+            % Store the final values of the Lagrange multipliers.
+            obj.myConstraintLagrangeMultipliers = constLambdaGuess;
+            obj.myEulerParamLagrangeMultipliers = pLambdaGuess;
             
-            % Update the system state.
+            % Compute the position and velocity again from these final values
+            % of the acceleration. The system state is updated within this
+            % function.
+            if (order == 2) && (stepNumber <= 2)
+                orderTemp = 1;
+                obj.BDFmethodIteration(rDDotGuess, pDDotGuess, orderTemp, stepsize, time, stepNumber);
+            else
+                obj.BDFmethodIteration(rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber);
+            end
+        end
+        function obj = computeQuasiNewtonPsi(obj)
+            % Compute the iteration matrix (psi) for the quasi-newton
+            % method
             
+            % Extract terms for iteration matrix. All of the terms were
+            % previously compute when we computed the Gmatrix, so they do
+            % not need to be recomputed.
+            massMatrix = obj.myMassMatrix;
+            JpMatrix = obj.myJpMatrixTotal;
+            Pmatrix = obj.myPMatrix;
+            phiPartialR = obj.myPhiPartialR;
+            phiPartialP = obj.myPhiPartialP;
+            nB = obj.myNumBodiesMinusGround;
+            nC = obj.myNumConstraints;
             
+            % Populate components of psi matrix
+            fatM = [massMatrix, zeros(3*nB,4*nB), zeros(3*nB,nB);
+                zeros(4*nB,3*nB), JpMatrix, Pmatrix';
+                zeros(nB,3*nB), Pmatrix, zeros(nB,nB)];
+            fatC = [phiPartialR, phiPartialP, zeros(nC,nB)];
             
+            % Matrix Assemble!!!
+            psi = [fatM fatC';
+                fatC zeros(nC,nC)];
+            obj.myPsi = psi;
+            
+        end
+        function obj = computeGMatrix(obj, stepsize, order)
+            % Compute the g-matrix for the BDF method iteration
+            %
+            % Function inputs:
+            % stepsize : double
+            %   Stepsize used for numerical integration.
+            %
+            % order : int
+            %   Order that was used for the current step of the BDF method
+            
+            % Set beta0 depending on the order of the BDF method being used.
+            if (order == 1)
+                beta0 = 1;
+            elseif (order == 2)
+                beta0 = 2/3;
+            end
+            
+            % Compute and extract the properties needed for the g matrix
+            massMatrix = obj.myMassMatrix;
+            
+            constLambdaGuess = obj.myConstraintLagrangeMultipliers;
+            pLambdaGuess = obj.myEulerParamLagrangeMultipliers;
+            
+            if (obj.myBodyIsGround == 1)
+                rDDotGuess = obj.myRDDot(4:end,1);
+                pDDotGuess = obj.myPDDot(5:end,1);
+            else
+                rDDotGuess = obj.myRDDot;
+                pDDotGuess = obj.myPDDot;
+            end
+            
+            obj.computePhiPartialR();
+            phiPartialR = obj.myPhiPartialR;
+            
+            obj.computePhiPartialP();
+            phiPartialP = obj.myPhiPartialP;
+            
+            obj.computeForceVector();
+            forceVector = obj.myForceVector;
+            
+            obj.computeJpMatrixTotal();
+            JpMatrix = obj.myJpMatrixTotal;
+            
+            obj.computePMatrix();
+            Pmatrix = obj.myPMatrix;
+            
+            obj.computeTorqueHatVector();
+            tauHat = obj.myTorqueHatVector;
+            
+            obj.computePhiP();
+            phiP = obj.myPhiP;
+            
+            obj.computePhiK();
+            obj.computePhiD();
+            phiK = obj.myPhiK;
+            phiD = obj.myPhiD;
+            
+            phi = [phiK; 
+                phiD];
+            
+            % Compute all terms of Gmatrix
+            forceTerm = massMatrix*rDDotGuess + phiPartialR'*constLambdaGuess - forceVector;
+            torqueTerm = JpMatrix*pDDotGuess + phiPartialP'*constLambdaGuess + Pmatrix'*pLambdaGuess - tauHat;
+            eulerParamTerm = 1/(beta0^2*stepsize^2)*phiP;
+            constraintTerm = 1/(beta0^2*stepsize^2)*phi;
+            
+            % Matrix Assemble!!!
+            gMatrix = [forceTerm;
+                torqueTerm;
+                eulerParamTerm;
+                constraintTerm];
+            
+            obj.myGMatrix = gMatrix;       
+        end
+        function obj = BDFmethodIteration(obj, rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber)
+            % Perform one iteration of the BDF method
+            %
+            % Function inputs:
+            % rDDotGuess : 3N x 1 vec, where N is the number of bodies not including the ground.
+            %   Vector containing the guess for the position accelerations of each
+            %   body in the system, not including the ground.
+            %
+            % pDDotGuess : 4N x 1 vec, where N is the number of bodies not including the ground.
+            %   Vector containing the guess for the second time derivative
+            %   of the Euler parameters of each body in the system, not 
+            %   including the ground.
+            %
+            % order : int
+            %   Order of the BDF method. Currently only support 1 and 2
+            %
+            % stepsize : double
+            %   Stepsize of the numerical integration
+            %
+            % time : double
+            %   Current time of the system
+            %
+            % stepNumber : int
+            %   Current step number of the dynamics analysis.
+            
+            if (order == 1)
+                % Extract the solution from the previous time step. If
+                % there is a ground, remove it from the vector.
+                if (obj.myBodyIsGround == 1)
+                    rNminus1 = obj.myRTotal(4:end,(stepNumber - 1));
+                    rDotNminus1 = obj.myRDotTotal(4:end,(stepNumber - 1));
+                    
+                    pNminus1 = obj.myPTotal(5:end,(stepNumber - 1));
+                    pDotNminus1 = obj.myPDotTotal(5:end,(stepNumber - 1));
+                else
+                    rNminus1 = obj.myRTotal(:,(stepNumber - 1));
+                    rDotNminus1 = obj.myRDotTotal(:,(stepNumber - 1));
+                    
+                    pNminus1 = obj.myPTotal(:,(stepNumber - 1));
+                    pDotNminus1 = obj.myPDotTotal(:,(stepNumber - 1));
+                end
+                
+                % Compute next guess for rDot and pDot.
+                rDotGuess = rDotNminus1 + stepsize*rDDotGuess;
+                pDotGuess = pDotNminus1 + stepsize*pDDotGuess;               
+                
+                % Compute next guess for r and p.
+                rGuess = rNminus1 + stepsize*rDotGuess;
+                pGuess = pNminus1 + stepsize*pDotGuess;
+                
+            elseif (order == 2)
+                % Extract the solution from the previous two time steps.
+                % Remove ground if it is present in the system.
+                if (obj.myBodyIsGround == 1)
+                    rNminus1 = obj.myRTotal(4:end,(stepNumber - 1));
+                    rNminus2 = obj.myRTotal(4:end,(stepNumber - 2));
+                    rDotNminus1 = obj.myRDotTotal(4:end,(stepNumber - 1));
+                    rDotNminus2 = obj.myRDotTotal(4:end,(stepNumber - 2));
+                    
+                    pNminus1 = obj.myPTotal(5:end,(stepNumber - 1));
+                    pNminus2 = obj.myPTotal(5:end,(stepNumber - 2));
+                    pDotNminus1 = obj.myPDotTotal(5:end,(stepNumber - 1));
+                    pDotNminus2 = obj.myPDotTotal(5:end,(stepNumber - 2));
+                else
+                    rNminus1 = obj.myRTotal(:,(stepNumber - 1));
+                    rNminus2 = obj.myRTotal(:,(stepNumber - 2));
+                    rDotNminus1 = obj.myRDotTotal(:,(stepNumber - 1));
+                    rDotNminus2 = obj.myRDotTotal(:,(stepNumber - 2));
+                    
+                    pNminus1 = obj.myPTotal(:,(stepNumber - 1));
+                    pNminus2 = obj.myPTotal(:,(stepNumber - 2));
+                    pDotNminus1 = obj.myPDotTotal(:,(stepNumber - 1));
+                    pDotNminus2 = obj.myPDotTotal(:,(stepNumber - 2));
+                end
+                % Compute next guess for rDot and pDot.
+                rDotGuess = (4/3)*rDotNminus1 - (1/3)*rDotNminus2 + (2/3)*stepsize*rDDotGuess;
+                pDotGuess = (4/3)*pDotNminus1 - (1/3)*pDotNminus2 + (2/3)*stepsize*pDDotGuess;
+                
+                % Compute next guess for r and p.
+                rGuess = (4/3)*rNminus1 - (1/3)*rNminus2 + (2/3)*stepsize*rDotGuess;
+                pGuess = (4/3)*pNminus1 - (1/3)*pNminus2 + (2/3)*stepsize*pDotGuess;
+                
+            else
+                error('Only BDF method of order 1 or 2 supported')
+            end
+            
+            % If there is a ground in the system, add it back in.
+            if (obj.myBodyIsGround == 1)
+                rGuess = [zeros(3,1); rGuess];
+                rDotGuess = [zeros(3,1); rDotGuess];
+                rDDotGuess = [zeros(3,1); rDDotGuess];
+                
+                pGuess = [zeros(4,1); pGuess];
+                pDotGuess = [zeros(4,1); pDotGuess];
+                pDDotGuess = [zeros(4,1); pDDotGuess];
+            end
+            
+            % Store the guesses for the positions, velocities, and
+            % accelerations as the current state of the system.
+            obj.updateSystemState(rGuess, rDotGuess, rDDotGuess, pGuess, pDotGuess, pDDotGuess, time);
         end
         function obj = solveFirstStepDynamicsAnalysis(obj, time)
             % Compute the second time derivative of the generalized
@@ -374,13 +616,9 @@ classdef multibodySystem < handle
                 rDDot = qDDot(1:3*nBodies);
                 pDDot = qDDot((3*nBodies + 1):7*nBodies);
             end
-
-            % Reshape into a matrix
-            rDDotMatrix = reshape(rDDot,[3 obj.myNumBodies]);
-            pDDotMatrix = reshape(pDDot, [4 obj.myNumBodies]);
             
             % Update the accelerations
-            obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);
+            obj.updateSystemState([], [], rDDot, [], [], pDDot, time);
             
             % Store the lagrange multipliers
             obj.myConstraintLagrangeMultipliers = constraintLagrangeMults;
@@ -458,7 +696,7 @@ classdef multibodySystem < handle
             % Compute phi full and check to make sure it equals (approximately) zero.
             obj.computePhiFull();
             if (abs(norm(obj.myPhiFull)) > 10^-9)
-                disp('Constraint matrix not equal to zero in initial pose.');
+                error('Constraint matrix not equal to zero in initial pose.');
                 phiFullFlag = 0;
             else
                 phiFullFlag = 1;
@@ -468,7 +706,7 @@ classdef multibodySystem < handle
             % it is zero. PhiP was already computed as part of phiFull so
             % you can just pull it.
             if (abs(norm(obj.myPhiP)) > 10^-9)
-                disp('Euler parameter normalization constraint not satisified in initial pose.')
+                error('Euler parameter normalization constraint not satisified in initial pose.')
                 eulerParamConstFlag = 0;
             else
                 eulerParamConstFlag = 1;
@@ -487,19 +725,15 @@ classdef multibodySystem < handle
             rDot = obj.myRDot;
             pDot = obj.myPDot;
             
-            % Vectorize rDot and pDot because they are currently in matrix
-            % form.
+            % Remove ground from system if it exists
             if (obj.myBodyIsGround == 1)
-                nBodies = obj.myNumBodies - 1;
-                
                 % rDot and pDot include the ground so remove them.
-                rDot(:,1) = [];
-                pDot(:,1) = [];
+                rDotVec = rDot(4:end,1);
+                pDotVec = pDot(5:end,1);
             else
-                nBodies = obj.myNumBodies;
+                rDotVec = rDot;
+                pDotVec = pDot;
             end
-            rDotVec = reshape(rDot,[3*nBodies,1]);
-            pDotVec = reshape(pDot,[4*nBodies,1]);
             
             % Extract the portion of nu that relates to the constraints
             nuConst = nu(1:obj.myNumConstraints); 
@@ -507,7 +741,7 @@ classdef multibodySystem < handle
             % Check to ensure this constraint is satisfied
             check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
             if (abs(norm(check)) > 10^-9)
-                disp('Velocity constraint not satisified in initial pose.')
+                error('Velocity constraint not satisified in initial pose.')
                 velocityConstFlag = 0;
             else
                 velocityConstFlag = 1;
@@ -520,7 +754,7 @@ classdef multibodySystem < handle
             
             check2 = Pmatrix*pDotVec;
             if (abs(norm(check2)) > 10^-9)
-                disp('Euler parameter velocity normalization constraint is not satisified in initial pose.')
+                error('Euler parameter velocity normalization constraint is not satisified in initial pose.')
                 eulerParamVelConstFlag = 0;
             else
                 eulerParamVelConstFlag = 1;
@@ -751,9 +985,10 @@ classdef multibodySystem < handle
             % if one of the bodies is that ground because we do not want
             % those values.
             p = obj.myP;
+            pMatrixForm = reshape(p, [4,obj.myNumBodies]);
             if (obj.myBodyIsGround == 1)
                 nBodies = obj.myNumBodies - 1;
-                p(:,1) = [];
+                pMatrixForm(:,1) = [];
             else
                 nBodies = obj.myNumBodies;
             end
@@ -761,9 +996,10 @@ classdef multibodySystem < handle
             % Seed the P matrix
             Pmatrix = zeros(nBodies,4*nBodies);
             
+            
             % Loop through each body and add it to the matrix
             for iB = 1:nBodies
-                Pmatrix(iB, (4*iB - 3):4*iB) = p(:,iB)';
+                Pmatrix(iB, (4*iB - 3):4*iB) = pMatrixForm(:,iB)';
             end
             obj.myPMatrix = Pmatrix;
         end
@@ -922,11 +1158,9 @@ classdef multibodySystem < handle
             if (obj.myBodyIsGround == 1)
                 % Remove ground from rDDot and pDDot matrices, if there is a ground
                 % defined in the system. The ground is always body 1.
-                rDDot(:,1) = [];
-                pDDot(:,1) = [];
+                rDDotVec = rDDot(4:end,1);
+                pDDotVec = pDDot(5:end,1);
             end
-            rDDotVec = reshape(rDDot,[3*nBodies,1]); 
-            pDDotVec = reshape(pDDot,[4*nBodies,1]);
             
             % Obtain torqueHat vector
             obj.computeTorqueHatVector();
@@ -1022,14 +1256,32 @@ classdef multibodySystem < handle
         function obj = storeSystemState(obj)
             % Store the current state of each body
             
-            % Extract matrices that contain the state info for all bodies.
-            r = obj.myR;
-            rDot = obj.myRDot;
-            rDDot = obj.myRDDot;
-            p = obj.myP;
-            pDot = obj.myPDot;
-            pDDot = obj.myPDDot;
+            % Extract vectors that contain the state info for all bodies.
+            rVec = obj.myR;
+            rDotVec = obj.myRDot;
+            rDDotVec = obj.myRDDot;
+            pVec = obj.myP;
+            pDotVec = obj.myPDot;
+            pDDotVec = obj.myPDDot;
             time = obj.myTime;
+            
+            % Add those vectors into the system level total simulation
+            % matrix
+            obj.myRTotal(:,end+1) = rVec;
+            obj.myRDotTotal(:,end+1) = rDotVec;
+            obj.myRDDotTotal(:,end+1) = rDDotVec;
+            obj.myPTotal(:,end+1) = pVec;
+            obj.myPDotTotal(:,end+1) = pDotVec;
+            obj.myPDDotTotal(:,end+1) = pDDotVec;
+            
+            % Reshape the vectors into matrices.
+            nBodies = obj.myNumBodies;
+            r = reshape(rVec,[3,nBodies]);
+            rDot = reshape(rDotVec,[3,nBodies]);
+            rDDot = reshape(rDDotVec,[3,nBodies]);
+            p = reshape(pVec,[4,nBodies]);
+            pDot = reshape(pDotVec,[4,nBodies]);
+            pDDot = reshape(pDDotVec,[4,nBodies]);
             
             % Loop through each body. Store the info for each body within
             % its data structure. The resulting data structures will have
@@ -1075,13 +1327,9 @@ classdef multibodySystem < handle
                 rNew = q(1:3*nBodies);
                 pNew = q((3*nBodies + 1):7*nBodies);
             end
-            
-            % Reshape into a matrix
-            rMatrix = reshape(rNew,[3 obj.myNumBodies]);
-            pMatrix = reshape(pNew, [4 obj.myNumBodies]);
-            
+
             % Update the position.
-            obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], obj.myTime);
+            obj.updateSystemState(rNew, [], [], pNew, [], [], obj.myTime);
             
             % Now that the system state is updated, recompute phi and the
             % jacobian of phi
@@ -1104,14 +1352,15 @@ classdef multibodySystem < handle
             if (obj.myBodyIsGround == 1)
                 % By convention, body 1 is always the ground, if there is a
                 % ground.
-                rInit(:,1) = [];
-                pInit(:,1) = [];
+                rInitVec = rInit(4:end,1);
+                pInitVec = pInit(5:end,1);
                 nBodies = obj.myNumBodies - 1;
             else
                 nBodies = obj.myNumBodies;
+                rInitVec = rInit;
+                pInitVec = pInit;
             end
-            rInitVec = reshape(rInit,[3*nBodies 1]);
-            pInitVec = reshape(pInit,[4*nBodies 1]);
+
             qGuess = [rInitVec; pInitVec];
             
             
@@ -1156,14 +1405,10 @@ classdef multibodySystem < handle
                     pNew = qNew((3*nBodies + 1):7*nBodies);
                 end
                 
-                % Reshape into a matrix
-                rMatrix = reshape(rNew,[3 obj.myNumBodies]);
-                pMatrix = reshape(pNew, [4 obj.myNumBodies]);
-                
                 % Update the position. If this is the last time through the
                 % loop, this will allow us to update the system to the
                 % final solution.
-                obj.updateSystemState(rMatrix, [], [], pMatrix, [], [], time);
+                obj.updateSystemState(rNew, [], [], pNew, [], [], time);
                 
                 % Check to see if the tolerance for convergence has been
                 % reached. If it has, break from this loop.
@@ -1253,12 +1498,8 @@ classdef multibodySystem < handle
                 pDot = qDot((3*nBodies + 1):7*nBodies);
             end
             
-            % Reshape into a matrix
-            rDotMatrix = reshape(rDot,[3 obj.myNumBodies]);
-            pDotMatrix = reshape(pDot, [4 obj.myNumBodies]);
-            
             % Update the velocities
-            obj.updateSystemState([], rDotMatrix, [], [], pDotMatrix, [], time);
+            obj.updateSystemState([], rDot, [], [], pDot, [], time);
         end
         function obj = computeQDDot(obj, time)
             % Compute acceleration and second time derivative of Euler
@@ -1299,13 +1540,8 @@ classdef multibodySystem < handle
                 pDDot = qDDot((3*nBodies + 1):7*nBodies);
             end
             
-            
-            % Reshape into a matrix
-            rDDotMatrix = reshape(rDDot,[3 obj.myNumBodies]);
-            pDDotMatrix = reshape(pDDot, [4 obj.myNumBodies]);
-            
             % Update the accelerations
-            obj.updateSystemState([], [], rDDotMatrix, [], [], pDDotMatrix, time);
+            obj.updateSystemState([], [], rDDot, [], [], pDDot, time);
         end
         function obj = computePhiFull(obj)
             % Compute each component of phiFull
@@ -1610,88 +1846,94 @@ classdef multibodySystem < handle
             
             obj.myBodies{bodyNumber}.addVector(aBar, vectorName);
         end
-        function obj = updateSystemState(obj, rMatrix, rDotMatrix, rDDotMatrix, pMatrix, pDotMatrix, pDDotMatrix, time)
+        function obj = updateSystemState(obj, rVec, rDotVec, rDDotVec, pVec, pDotVec, pDDotVec, time)
             % Update position, orientation, and time derivatives of each
             % for each body at a specific time step.
             %
             % Function inputs:
-            % rMatrix : 3 x N matrix, where N is the number of bodies
-            %   Matrix containing the current 3D positon of each body in
+            % rVec : 3N x 1 vector, where N is the number of bodies
+            %   vector containing the current 3D positon of each body in
             %   the global reference frame
             %
-            % rDotMatrix : 3 x N matrix, where N is the number of bodies
-            %   Matrix containing the current time derivative of the 3D
+            % rDotVec : 3N x 1 vector, where N is the number of bodies
+            %   vector containing the current time derivative of the 3D
             %   positon of each body in the global reference frame
             %
-            % rDDotMatrix : 3 x N matrix, where N is the number of bodies
-            %   Matrix containing the current 2nd time derivative of the 3D
+            % rDDotVec : 3N x 1 vector, where N is the number of bodies
+            %   vector containing the current 2nd time derivative of the 3D
             %   positon of each body in the global reference frame
             %
-            % pMatrix : 4 x N matrix, where N is the number of bodies
-            %   Matrix containing the current Euler parameters of each body
+            % pMatrix : 4N x 1 vector, where N is the number of bodies
+            %   vector containing the current Euler parameters of each body
             %
-            % pDotMatrix : 4 x N matrix, where N is the number of bodies
-            %   Matrix containing the current time derivative of the
+            % pDotVec : 4N x 1 vector, where N is the number of bodies
+            %   vector containing the current time derivative of the
             %   Euler parameters of each body
             %
-            % pDDotMatrix : 4 x N matrix, where N is the number of bodies
-            %   Matrix containing the current time derivative of the
+            % pDDotVec : 4N x 1 vector, where N is the number of bodies
+            %   vector containing the current time derivative of the
             %   Euler parameters of each body
             
             % Update system variables if they are not empty. If they are
             % empty it means those variables are not being updated at this
             % time.
-            if ~isempty(rMatrix)
-                obj.myR = rMatrix;
+            if ~isempty(rVec)
+                obj.myR = rVec;
             end
-            if ~isempty(rDotMatrix)
-                obj.myRDot = rDotMatrix;
+            if ~isempty(rDotVec)
+                obj.myRDot = rDotVec;
             end
-            if ~isempty(rDDotMatrix)
-                obj.myRDDot = rDDotMatrix;
+            if ~isempty(rDDotVec)
+                obj.myRDDot = rDDotVec;
             end
-            if ~isempty(pMatrix)
-                obj.myP = pMatrix;
+            if ~isempty(pVec)
+                obj.myP = pVec;
             end
-            if ~isempty(pDotMatrix)
-                obj.myPDot = pDotMatrix;
+            if ~isempty(pDotVec)
+                obj.myPDot = pDotVec;
             end
-            if ~isempty(pDDotMatrix)
-                obj.myPDDot = pDDotMatrix;
+            if ~isempty(pDDotVec)
+                obj.myPDDot = pDDotVec;
             end
             obj.myTime = time;
             
-            % Update individual bodies. If the desired matrix is empty,
+            % Update individual bodies. If the desired vector is empty,
             % this means that specific value is not being updated at the
             % moment. Just keep this values the same.
             nBodies = obj.myNumBodies;
             for iB = 1:nBodies
-                if ~isempty(pMatrix)
+                if ~isempty(pVec)
+                    pMatrix = reshape(pVec,[4,nBodies]);
                     p = pMatrix(:,iB);
                 else
                     p = obj.myBodies{iB}.myP;
                 end
-                if ~isempty(pDotMatrix)
+                if ~isempty(pDotVec)
+                    pDotMatrix = reshape(pDotVec,[4,nBodies]);
                     pDot = pDotMatrix(:,iB);
                 else
                     pDot = obj.myBodies{iB}.myPDot;
                 end
-                if ~isempty(pDDotMatrix)
+                if ~isempty(pDDotVec)
+                    pDDotMatrix = reshape(pDDotVec,[4,nBodies]);
                     pDDot = pDDotMatrix(:,iB);
                 else
                     pDDot = obj.myBodies{iB}.myPDDot;
                 end
-                if ~isempty(rMatrix)
+                if ~isempty(rVec)
+                    rMatrix = reshape(rVec,[3,nBodies]);
                     r = rMatrix(:,iB);
                 else
                     r = obj.myBodies{iB}.myR;
                 end
-                if ~isempty(rDotMatrix)
+                if ~isempty(rDotVec)
+                    rDotMatrix = reshape(rDotVec,[3,nBodies]);
                     rDot = rDotMatrix(:,iB);
                 else
                     rDot = obj.myBodies{iB}.myRDot;
                 end
-                if ~isempty(rDDotMatrix)
+                if ~isempty(rDDotVec)
+                    rDDotMatrix = reshape(rDDotVec,[3,nBodies]);
                     rDDot = rDDotMatrix(:,iB);
                 else
                     rDDot = obj.myBodies{iB}.myRDDot;
@@ -1724,14 +1966,14 @@ classdef multibodySystem < handle
                     
                     for iA = 1:length(necessaryAttributes)
                         if ~isfield(attributes,necessaryAttributes{iA})
-                            disp(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                            error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
                         end
                     end
                     
                     % Tell user constraint name is optional if it is not
                     % provided
                     if ~isfield(attributes,'constraintName')
-                        disp('constraintName not provided. Setting to default');
+                        error('constraintName not provided. Setting to default');
                         attributes.constraintName = [constraintType ' constraint'];
                     end
                     
@@ -1746,7 +1988,7 @@ classdef multibodySystem < handle
                     
                     for iA = 1:length(necessaryAttributes)
                         if ~isfield(attributes,necessaryAttributes{iA})
-                            disp(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                            error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
                         end
                     end
                     
@@ -1768,7 +2010,7 @@ classdef multibodySystem < handle
                     
                     for iA = 1:length(necessaryAttributes)
                         if ~isfield(attributes,necessaryAttributes{iA})
-                            disp(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                            error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
                         end
                     end
                     
@@ -1789,7 +2031,7 @@ classdef multibodySystem < handle
                     necessaryAttributes = [{'bodyI'} {'bodyJ'} {'coordVec'} {'sBarIP'} {'sBarJQ'} {'ft'} {'ftDot'} {'ftDDot'}];
                     for iA = 1:length(necessaryAttributes)
                         if ~isfield(attributes,necessaryAttributes{iA})
-                            disp(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                            error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
                         end
                     end
                     

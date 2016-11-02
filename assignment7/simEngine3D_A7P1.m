@@ -41,9 +41,9 @@ sys.addPoint(2, [-2 0 0]', 'Q');
 % In a simulation, the state of each body will be updated at each time
 % step. Each column represents a different body.
 % Initial position
-rInitial = [0 0;
-    0 sqrt(2);
-    0 -sqrt(2)];
+r1Initial = zeros(3,1);
+r2Initial = [0; sqrt(2); -sqrt(2)];
+rInitial = [r1Initial; r2Initial];
 
 % Initial orientation
 p1 = [1 0 0 0]'; 
@@ -52,7 +52,7 @@ A2 = [0 0 1;
     s2 s2 0;
     -s2 s2 0];
 p2 = simEngine3DUtilities.A2p(A2);
-pInitial = [p1 p2];
+pInitial = [p1; p2];
 t = 0;
 sys.updateSystemState( rInitial, [], [], pInitial, [], [], t);
 
@@ -129,7 +129,7 @@ sys.addBasicConstraint(isKinematic,'dp1',a6);
 %% Perform inverse dynamics analysis
 if 1
     timeStart = 0;
-    timeEnd = 10;
+    timeEnd = 1;
     timeStep = 10^-3; 
     displayFlag = 0;
     sys.inverseDynamicsAnalysis(timeStart, timeEnd,timeStep, displayFlag);

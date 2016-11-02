@@ -41,9 +41,9 @@ sys.addPoint(2, [-2 0 0]', 'Q');
 % In a simulation, the state of each body will be updated at each time
 % step. Each column represents a different body.
 % Initial position
-rInitial = [0 0;
-    0 sqrt(2);
-    0 -sqrt(2)];
+r1Initial = zeros(3,1);
+r2Initial = [0; sqrt(2); -sqrt(2)];
+rInitial = [r1Initial; r2Initial];
 
 % Initial orientation
 p1 = [1 0 0 0]'; 
@@ -52,11 +52,11 @@ A2 = [0 0 1;
     s2 s2 0;
     -s2 s2 0];
 p2 = simEngine3DUtilities.A2p(A2);
-pInitial = [p1 p2];
+pInitial = [p1; p2];
 
 % Initial velocities. Assume system starts from rest.
-rDotInitial = zeros(3,2);
-pDotInitial = zeros(4,2);
+rDotInitial = zeros(6,1);
+pDotInitial = zeros(8,1);
 
 t = 0;
 sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
@@ -124,9 +124,10 @@ sys.addBasicConstraint(isKinematic,'dp1',a5);
 if 1
     timeStart = 0;
     timeEnd = 1;
-    timeStep = 10^-3; 
+    timeStep = 10^-3;
+    order = 2;
     displayFlag = 0;
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, displayFlag);
     save('multibodySystem_A8P1.mat','sys');
 else
     load('multibodySystem_A8P1.mat')
