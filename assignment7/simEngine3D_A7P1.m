@@ -57,8 +57,8 @@ t = 0;
 sys.updateSystemState( rInitial, [], [], pInitial, [], [], t);
 
 %% Plot starting configuration of system
-sys.plot(1);
-view([90 0])
+% sys.plot(1);
+% view([90 0])
 
 %% Build revolute joint from basic constraints
 % In future development, include a joint class that automatically creates
@@ -131,7 +131,7 @@ if 1
     timeStart = 0;
     timeEnd = 1;
     timeStep = 10^-3; 
-    displayFlag = 0;
+    displayFlag = 1;
     sys.inverseDynamicsAnalysis(timeStart, timeEnd,timeStep, displayFlag);
     save('multibodySystem_A7P1.mat','sys');
 else

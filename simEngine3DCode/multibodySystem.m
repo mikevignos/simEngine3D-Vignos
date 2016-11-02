@@ -47,6 +47,8 @@ classdef multibodySystem < handle
         myPDDotTotal; % 4n x M matrix containing the 2nd time derivative of the Euler parameters throughout a dynamics analysis
         myGMatrix; % Matrix that is computed at each iteration of the numerical integration. Used to compute the correction factor.
         myPsi; % Iteration matrix for Quasi-Newton method
+        myIterCount; % Iteration count for current time step.
+        myIterCountTotal; % Total number of iterations for all timesteps
     end
     
     properties (Dependent)
@@ -235,6 +237,13 @@ classdef multibodySystem < handle
                     
                 end
                 
+                % Store total number of iterations for previous time step
+                if (iT == 1)
+                    obj.myIterCountTotal(iT) = 0;
+                else
+                    obj.myIterCountTotal(iT) = obj.myIterCount;
+                end
+                
                 % Store the current position, velocity, and acceleration of
                 % the body for this time step
                 obj.storeSystemState();
@@ -328,7 +337,11 @@ classdef multibodySystem < handle
                 gMatrix = obj.myGMatrix;
                 
                 % Compute the quasi-newton iteration matrix
-                obj.computeQuasiNewtonPsi();
+                if (iter == 1)
+                    obj.computeQuasiNewtonPsi();
+                    nPsi = norm(obj.myPsi)
+                    nPsi
+                end
                 psi = obj.myPsi;
                 
                 % Solve linear system to get the correction to this guess
@@ -351,6 +364,9 @@ classdef multibodySystem < handle
                 
                 iter = iter + 1;
             end
+            
+            % Store the total number of iterations
+            obj.myIterCount = iter;
             
             % Store the final values of the Lagrange multipliers.
             obj.myConstraintLagrangeMultipliers = constLambdaGuess;
@@ -677,10 +693,11 @@ classdef multibodySystem < handle
             else
                 nBodies = obj.myNumBodies;
             end
+            nConst = obj.myNumConstraints;
             obj.computeGamma();
             gamma = obj.myGamma;
-            gammaP = gamma(1:nBodies);
-            gammaHat = gamma((nBodies + 1):end);
+            gammaHat = gamma(1:nConst);
+            gammaP = gamma((nConst+1):(nConst+nBodies));
             
             % Assemble RHS vector
             RHSvector = [forceVector;
@@ -1780,7 +1797,7 @@ classdef multibodySystem < handle
             end
             gammaTotal = zeros(gammaLength,1);
             
-            % Loop through each constraint and comute gamma
+            % Loop through each constraint and compute gamma
             for iC = 1:nKDconst
                 gammaFlag = 1;
                 obj.computeConstraintProperties(iC, time, 0, 0, gammaFlag, 0, 0);
