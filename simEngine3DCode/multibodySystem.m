@@ -49,6 +49,7 @@ classdef multibodySystem < handle
         myPsi; % Iteration matrix for Quasi-Newton method
         myIterCount; % Iteration count for current time step.
         myIterCountTotal; % Total number of iterations for all timesteps
+        myVelocityConstraintViolationTotal; % nConstraint x nTimeSteps matrix containing the velocity constraint violation for each step of the simulation.
     end
     
     properties (Dependent)
@@ -81,7 +82,6 @@ classdef multibodySystem < handle
                     obj.myBodyIsGround = 1;
                 else
                     error('ERROR: The ground must be body 1. Please correct this.');
-                    clear isGround;
                 end
             end
             
@@ -209,6 +209,35 @@ classdef multibodySystem < handle
             % Compute time vector for analysis
             time = startTime:timestep:endTime;
             
+            % Allocate space for matrices that will be populated throughout
+            % dynamics analysis
+%             nB = obj.myNumBodies;
+%             nC = obj.myNumConstraints;
+%             nT = length(time);
+%             obj.myTimeTotal = zeros(1,nT);
+%             obj.myRTotal = zeros(3*nB,nT);
+%             obj.myRDotTotal = zeros(3*nB,nT);
+%             obj.myRDDotTotal = zeros(3*nB,nT);
+%             obj.myPTotal = zeros(4*nB,nT);
+%             obj.myPDotTotal = zeros(4*nB,nT);
+%             obj.myPDDotTotal = zeros(4*nB,nT);
+%             obj.myIterCountTotal = zeros(1,nT);
+%             obj.myVelocityConstraintViolationTotal = zeros(nC, nT);
+%             
+%             % Allocate space within each body as well.
+%             for iB = 1:nB
+%                 obj.myBodies{iB}.myTimeTotal = zeros(1,nT);
+%                 obj.myBodies{iB}.myRTotal = zeros(3,nT);
+%                 obj.myBodies{iB}.myRDotTotal = zeros(3,nT);
+%                 obj.myBodies{iB}.myRDDotTotal = zeros(3,nT);
+%                 obj.myBodies{iB}.myPTotal = zeros(4,nT);
+%                 obj.myBodies{iB}.myPDotTotal = zeros(4,nT);
+%                 obj.myBodies{iB}.myPDDotTotal = zeros(4,nT);
+%                 obj.myBodies{iB}.myConstraintForcesTotal = zeros(3*nC,nT);
+%                 obj.myBodies{iB}.myConstraintTorquesTotal = zeros(4*nC,nT);
+%                 obj.myBodies{iB}.myConstraintTorquesOmegaTotal = zeros(3*nC,nT);
+%             end
+            
             for iT = 1:length(time)
                 t = time(iT);
                 
@@ -246,7 +275,7 @@ classdef multibodySystem < handle
                 
                 % Store the current position, velocity, and acceleration of
                 % the body for this time step
-                obj.storeSystemState();
+                obj.storeSystemState(iT);
                 
                 % Compute the reaction forces from the Lagrange multipliers
                 obj.computeConstraintForces();
@@ -255,10 +284,53 @@ classdef multibodySystem < handle
                 % Store the reaction forces
                 obj.storeConstraintForcesAndTorques(t);
                 
+                % Compute the violation of the velocity constraints. No
+                % need to recompute phiPartialR and phiPartialP within this
+                % function because we computed them to compute the
+                % constraint forces and the constraint torques.
+                obj.computeVelocityConstraintViolation(iT);
+                
                 if (displayFlag == 1)
                     disp(['Dynamics analysis completed for t = ' num2str(t) ' sec.']);
                 end
             end
+        end
+        function obj = computeVelocityConstraintViolation(obj, stepNumber)
+            % Compute violation of velocity constraint
+            %
+            % Function inputs:
+            % stepNumber : int
+            %   Current step number of the dynamics analysis.
+            
+            % Check the velocity constraint.
+            % Compute necessary parameters. We computed phiPartialR and
+            % phiPartialP prior to this function so no need to recompute
+            % them.
+            obj.computeNu();
+            
+            % Extract necessary parameters.
+            phiPartialR = obj.myPhiPartialR;
+            phiPartialP = obj.myPhiPartialP;
+            nu = obj.myNu;
+            rDot = obj.myRDot;
+            pDot = obj.myPDot;
+            
+            % Remove ground from system if it exists
+            if (obj.myBodyIsGround == 1)
+                % rDot and pDot include the ground so remove them.
+                rDotVec = rDot(4:end,1);
+                pDotVec = pDot(5:end,1);
+            else
+                rDotVec = rDot;
+                pDotVec = pDot;
+            end
+            
+            % Extract the portion of nu that relates to the constraints
+            nuConst = nu(1:obj.myNumConstraints); 
+            
+            % Check to ensure this constraint is satisfied
+            velConstViolation = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
+            obj.myVelocityConstraintViolationTotal(:,stepNumber) = velConstViolation;
         end
         function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepsize, order, stepNumber)
             % For this current time step, use a numerical integration
@@ -280,7 +352,7 @@ classdef multibodySystem < handle
             
             % Set variables for convergence
             maxIter = 50;
-            tolerance = 10^-9;
+            tolerance = 10^-5;
             
             % Set the intial guess for the accelerations and lagrange
             % multipliers. These will be the state of the system at the
@@ -290,8 +362,8 @@ classdef multibodySystem < handle
             
             % If a ground is in the system, remove the ground from the
             % guess of rDDot and pDDot
-            rDDotGuess = obj.myRDDotTotal(:,end);
-            pDDotGuess = obj.myPDDotTotal(:,end);
+            rDDotGuess = obj.myRDDotTotal(:,(stepNumber-1));
+            pDDotGuess = obj.myPDDotTotal(:,(stepNumber-1));
             pLambdaGuess = obj.myEulerParamLagrangeMultipliers;
             constLambdaGuess = obj.myConstraintLagrangeMultipliers;
             
@@ -339,8 +411,8 @@ classdef multibodySystem < handle
                 % Compute the quasi-newton iteration matrix
                 if (iter == 1)
                     obj.computeQuasiNewtonPsi();
-                    nPsi = norm(obj.myPsi)
-                    nPsi
+%                     rC = rcond(obj.myPsi)
+%                     nPsi
                 end
                 psi = obj.myPsi;
                 
@@ -474,6 +546,9 @@ classdef multibodySystem < handle
             torqueTerm = JpMatrix*pDDotGuess + phiPartialP'*constLambdaGuess + Pmatrix'*pLambdaGuess - tauHat;
             eulerParamTerm = 1/(beta0^2*stepsize^2)*phiP;
             constraintTerm = 1/(beta0^2*stepsize^2)*phi;
+%             eulerParamTerm = phiP;
+%             constraintTerm = phi;
+
             
             % Matrix Assemble!!!
             gMatrix = [forceTerm;
@@ -712,7 +787,10 @@ classdef multibodySystem < handle
             
             % Compute phi full and check to make sure it equals (approximately) zero.
             obj.computePhiFull();
-            if (abs(norm(obj.myPhiFull)) > 10^-9)
+            phiK = obj.myPhiK;
+            phiD = obj.myPhiD;
+            phiKD = [phiK; phiD];
+            if (abs(norm(phiKD)) > 10^-9)
                 error('Constraint matrix not equal to zero in initial pose.');
                 phiFullFlag = 0;
             else
@@ -831,8 +909,7 @@ classdef multibodySystem < handle
                 % multiplier.
                 obj.computeConstraintForces();
                 obj.computeConstraintTorques();
-               
-                
+
                 % Store the current forces and torques for all the
                 % constraints
                 obj.storeConstraintForcesAndTorques(t); 
@@ -878,6 +955,9 @@ classdef multibodySystem < handle
             nConst = obj.myNumConstraints;
             nBodies = obj.myNumBodies;
             lagrangeMults = obj.myConstraintLagrangeMultipliers;
+            
+            % Need to compute phiPartialR for the final values of R
+            obj.computePhiPartialR();
             phiPartialR = obj.myPhiPartialR;
             
             % Seed the constraint forces for all bodies
@@ -907,6 +987,9 @@ classdef multibodySystem < handle
             nConst = obj.myNumConstraints;
             nBodies = obj.myNumBodies;
             lagrangeMults = obj.myConstraintLagrangeMultipliers;
+            
+            % Compute phiPartial P for the final values of P.
+            obj.computePhiPartialP();
             phiPartialP = obj.myPhiPartialP;
 
             % Seed the constraint forces for all bodies
@@ -1270,8 +1353,11 @@ classdef multibodySystem < handle
             end
             obj.myJpMatrixTotal = JpMatrixTotal;
         end
-        function obj = storeSystemState(obj)
+        function obj = storeSystemState(obj, stepNumber)
             % Store the current state of each body
+            % Function inputs:
+            %   stepNumber : int
+            % Current step number of the analysis 
             
             % Extract vectors that contain the state info for all bodies.
             rVec = obj.myR;
@@ -1284,12 +1370,12 @@ classdef multibodySystem < handle
             
             % Add those vectors into the system level total simulation
             % matrix
-            obj.myRTotal(:,end+1) = rVec;
-            obj.myRDotTotal(:,end+1) = rDotVec;
-            obj.myRDDotTotal(:,end+1) = rDDotVec;
-            obj.myPTotal(:,end+1) = pVec;
-            obj.myPDotTotal(:,end+1) = pDotVec;
-            obj.myPDDotTotal(:,end+1) = pDDotVec;
+            obj.myRTotal(:,stepNumber) = rVec;
+            obj.myRDotTotal(:,stepNumber) = rDotVec;
+            obj.myRDDotTotal(:,stepNumber) = rDDotVec;
+            obj.myPTotal(:,stepNumber) = pVec;
+            obj.myPDotTotal(:,stepNumber) = pDotVec;
+            obj.myPDDotTotal(:,stepNumber) = pDDotVec;
             
             % Reshape the vectors into matrices.
             nBodies = obj.myNumBodies;

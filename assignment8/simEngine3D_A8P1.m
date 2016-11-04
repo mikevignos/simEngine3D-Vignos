@@ -136,7 +136,7 @@ sys.addBasicConstraint(isKinematic,'dp1',a6);
 %% Perform dynamics analysis
 if 1
     timeStart = 0;
-    timeEnd = 1;
+    timeEnd = 10;
     timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
@@ -145,9 +145,6 @@ if 1
 else
     load('multibodySystem_A8P1.mat')
 end
-
-
-
 
 %% Display torque at the revolute joint 
 % Extract torque for body 2 due to all constraints and time
@@ -170,7 +167,7 @@ xlabel('Time (sec)')
 ylabel('Torque (N*m)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ')
-savefig('A7P1_TorqueVsTime.png')
+savefig('A8P1_TorqueVsTime.png')
 
 figure
 hold on
@@ -182,4 +179,4 @@ ylabel(ax(1),'Torque (N*m)')
 ylabel(ax(2),'Theta (rad)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ','Theta')
-savefig('A7P1_TorqueAndThetaVsTime.png')
+savefig('A8P1_TorqueAndThetaVsTime.png')
