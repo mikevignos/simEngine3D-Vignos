@@ -62,9 +62,9 @@ t = 0;
 sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 
 %% Plot starting configuration of system
-sys.plot(1);
-view([90 0])
-savefig('A8P1_MechanismInitialPosition.png');
+% sys.plot(1);
+% view([90 0])
+% savefig('A8P1_MechanismInitialPosition.png');
 
 %% Build revolute joint from basic constraints
 % In future development, include a joint class that automatically creates
@@ -168,7 +168,7 @@ xlabel('Time (sec)')
 ylabel('Torque (N*m)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ')
-savefig('A8P1_TorqueVsTime.png')
+% savefig('A8P1_TorqueVsTime.png')
 
 figure
 hold on
@@ -180,4 +180,59 @@ ylabel(ax(1),'Torque (N*m)')
 ylabel(ax(2),'Theta (rad)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ','Theta')
-savefig('A8P1_TorqueAndThetaVsTime.png')
+% savefig('A8P1_TorqueAndThetaVsTime.png')
+
+%% Create plots for origin of body 2 ref frame
+time = sys.myBodies{2}.myTimeTotal;
+rOprime = sys.myBodies{2}.myRTotal;
+rDotOprime = sys.myBodies{2}.myRDotTotal;
+rDDotOprime = sys.myBodies{2}.myRDDotTotal;
+pOprime = sys.myBodies{2}.myPTotal;
+pDotOprime = sys.myBodies{2}.myPDotTotal;
+pDDotOprime = sys.myBodies{2}.myPDDotTotal;
+
+figure
+subplot(3,1,1)
+hold on
+plot(time,rOprime(1,:))
+plot(time,rOprime(2,:))
+plot(time,rOprime(3,:))
+title('Position of point O-prime')
+xlabel('Time (sec)')
+ylabel('Position (m)')
+legend('X','Y','Z')
+hold off
+
+subplot(3,1,2)
+hold on
+plot(time,rDotOprime(1,:))
+plot(time,rDotOprime(2,:))
+plot(time,rDotOprime(3,:))
+title('Velocity of point O-prime')
+xlabel('Time (sec)')
+ylabel('Velocity (m/s)')
+legend('X','Y','Z')
+hold off
+
+subplot(3,1,3)
+hold on
+plot(time,rDDotOprime(1,:))
+plot(time,rDDotOprime(2,:))
+plot(time,rDDotOprime(3,:))
+title('Acceleration of point O-prime')
+xlabel('Time (sec)')
+ylabel('Acceleration (m/s^2)')
+legend('X','Y','Z')
+hold off
+
+figure
+hold on
+plot(time,rDDotOprime(1,:))
+plot(time,rDDotOprime(2,:))
+plot(time,rDDotOprime(3,:))
+axis([0 10 -6 6])
+title('Acceleration of point O-prime -- Zoomed In')
+xlabel('Time (sec)')
+ylabel('Acceleration (m/s^2)')
+legend('X','Y','Z')
+hold off

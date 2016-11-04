@@ -392,6 +392,17 @@ classdef multibodySystem < handle
                 obj.myConstraintLagrangeMultipliers = constLambdaGuess;
                 obj.myEulerParamLagrangeMultipliers = pLambdaGuess;
                 
+                % Compare the quasi-newton iteration matrix and a numerical
+                % approximation of the iteration matrix.
+                %                 if (iter == 1) && (stepNumber == 1)
+                if (iter == 1)
+                    obj.computeQuasiNewtonPsi();
+                    
+                    % Compute a numerical approximation of the Jacobian
+%                     obj.computeFiniteDiffPsi(zGuess);
+                end
+                psi = obj.myPsi;
+                
                 % Compute position and velocities using BDF method. Within
                 % this function, the position, velocities, and
                 % accelerations of the system will be updated. Also,
@@ -408,13 +419,15 @@ classdef multibodySystem < handle
                 % Extract residual in the system (g matrix)
                 gMatrix = obj.myGMatrix;
                 
-                % Compute the quasi-newton iteration matrix
-                if (iter == 1)
-                    obj.computeQuasiNewtonPsi();
-%                     rC = rcond(obj.myPsi)
-%                     nPsi
-                end
-                psi = obj.myPsi;
+%                 % Compute the quasi-newton iteration matrix
+%                 if (iter == 1)
+%                     obj.computeQuasiNewtonPsi();
+%                     %condNum = cond(obj.myPsi)
+%                     
+%                     % Compute a numerical approximation of the Jacobian
+%                     obj.computeFiniteDiffPsi();
+%                 end
+%                 psi = obj.myPsi;
                 
                 % Solve linear system to get the correction to this guess
                 correction = psi\-gMatrix;
@@ -453,6 +466,21 @@ classdef multibodySystem < handle
             else
                 obj.BDFmethodIteration(rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber);
             end
+        end
+        function obj = computeFiniteDiffPsi(obj, zGuess)
+            % Compute finite difference approximation of psi.
+            %
+            % zGuess : (8*nBodies + nConstraints) x 1 vector
+            %   Vector containing the current guess for z. For this finite
+            %   difference approximation of psi to be accurate, z must be a
+            %   "healthy" set of generalized coordinates and constraints.
+            
+            delta = 10^-3;
+            
+            % Create zVector
+            
+            
+            % Loop through each 
         end
         function obj = computeQuasiNewtonPsi(obj)
             % Compute the iteration matrix (psi) for the quasi-newton
