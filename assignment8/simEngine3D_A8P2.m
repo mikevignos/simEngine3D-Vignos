@@ -91,6 +91,7 @@ sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 %% Plot starting configuration of system
 sys.plot(1);
 view([90 0])
+savefig('A8P2_MechanismInitialPosition.png');
 
 %% Build revolute joint between ground and body2 from basic constraints
 % In future development, include a joint class that automatically creates
@@ -205,7 +206,7 @@ sys.addBasicConstraint(isKinematic,'dp1',a10);
 %% Perform dynamics analysis
 if 1
     timeStart = 0;
-    timeEnd = 2;
+    timeEnd = 10;
     timeStep = 10^-3;
     order = 1;
     displayFlag = 1;
@@ -250,6 +251,8 @@ xlabel('Time (sec)');
 ylabel('Acceleration (m/s^2)');
 title('Acceleration of origin of 1st pendulum')
 
+savefig('A8P2_OriginOfPendulum1Results.png')
+
 %% Create a plot of the origin of the second pendulum
 rOprime2 = sys.myBodies{3}.myRTotal;
 rDotOprime2 = sys.myBodies{3}.myRDotTotal;
@@ -284,6 +287,8 @@ xlabel('Time (sec)');
 ylabel('Acceleration (m/s^2)');
 title('Acceleration of origin of 2nd pendulum')
 
+savefig('A8P2_OriginOfPendulum2Results.png')
+
 %% Create a plot of the violation of the velocity constraint
 velConstViolation = sys.myVelocityConstraintViolationTotal;
 
@@ -301,5 +306,7 @@ plot(time, violationNorm)
 xlabel('Time')
 ylabel('Norm-2 of Vel Const Violation')
 title('Norm-2 of Violation of Velocity Constraint for Rev Joint b/w Pendulums')
+
+savefig('A8P2_VelocityConstraintViolationResults.png')
 
 

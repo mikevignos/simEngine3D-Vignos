@@ -62,8 +62,9 @@ t = 0;
 sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 
 %% Plot starting configuration of system
-% sys.plot(1);
-% view([90 0])
+sys.plot(1);
+view([90 0])
+savefig('A8P1_MechanismInitialPosition.png');
 
 %% Build revolute joint from basic constraints
 % In future development, include a joint class that automatically creates
