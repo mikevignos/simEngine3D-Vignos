@@ -89,9 +89,9 @@ t = 0;
 sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 
 %% Plot starting configuration of system
-sys.plot(1);
-view([90 0])
-savefig('A8P2_MechanismInitialPosition.png');
+% sys.plot(1);
+% view([90 0])
+% savefig('A8P2_MechanismInitialPosition.png');
 
 %% Build revolute joint between ground and body2 from basic constraints
 % In future development, include a joint class that automatically creates
@@ -207,14 +207,18 @@ sys.addBasicConstraint(isKinematic,'dp1',a10);
 if 1
     timeStart = 0;
     timeEnd = 10;
-    timeStep = 10^-3;
+    timeStep = 10^-2;
     order = 1;
-    displayFlag = 1;
+    displayFlag = 0;
+    tic;
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, displayFlag);
+    dynamicsAnalysisTime = toc;
     save('multibodySystem_A8P2.mat','sys');
 else
     load('multibodySystem_A8P2.mat')
 end
+
+disp(['Dynamics Analysis for A8P2 took ' num2str(dynamicsAnalysisTime) ' seconds.'])
 
 %% Create a plot of the origin of the first pendulum.
 time = sys.myTimeTotal;
@@ -230,7 +234,7 @@ plot(time,rOprime1(2,:));
 plot(time,rOprime1(3,:));
 xlabel('Time (sec)');
 ylabel('Position (m)');
-title('Position of origin of 1st pendulum')
+title('Position, Velocity, and Acceleration of Origin of 1st Pendulum')
 legend('X','Y','Z')
 
 subplot(3,1,2)
@@ -240,7 +244,6 @@ plot(time,rDotOprime1(2,:));
 plot(time,rDotOprime1(3,:));
 xlabel('Time (sec)');
 ylabel('Velocity (m/s)');
-title('Velocity of origin of 1st pendulum')
 
 subplot(3,1,3)
 hold on
@@ -249,9 +252,7 @@ plot(time,rDDotOprime1(2,:));
 plot(time,rDDotOprime1(3,:));
 xlabel('Time (sec)');
 ylabel('Acceleration (m/s^2)');
-title('Acceleration of origin of 1st pendulum')
-
-savefig('A8P2_OriginOfPendulum1Results.png')
+saveas(gcf,'A8P2_OriginOfPendulum1Results.png')
 
 %% Create a plot of the origin of the second pendulum
 rOprime2 = sys.myBodies{3}.myRTotal;
@@ -266,7 +267,7 @@ plot(time,rOprime2(2,:));
 plot(time,rOprime2(3,:));
 xlabel('Time (sec)');
 ylabel('Position (m)');
-title('Position of origin of 2nd pendulum')
+title('Position, Velocity, and Acceleration of Origin of 2nd Pendulum')
 legend('X','Y','Z')
 
 subplot(3,1,2)
@@ -276,7 +277,6 @@ plot(time,rDotOprime2(2,:));
 plot(time,rDotOprime2(3,:));
 xlabel('Time (sec)');
 ylabel('Velocity (m/s)');
-title('Velocity of origin of 2nd pendulum')
 
 subplot(3,1,3)
 hold on
@@ -285,9 +285,7 @@ plot(time,rDDotOprime2(2,:));
 plot(time,rDDotOprime2(3,:));
 xlabel('Time (sec)');
 ylabel('Acceleration (m/s^2)');
-title('Acceleration of origin of 2nd pendulum')
-
-savefig('A8P2_OriginOfPendulum2Results.png')
+saveas(gcf,'A8P2_OriginOfPendulum2Results.png')
 
 %% Create a plot of the violation of the velocity constraint
 velConstViolation = sys.myVelocityConstraintViolationTotal;
@@ -295,8 +293,7 @@ velConstViolation = sys.myVelocityConstraintViolationTotal;
 % Extract portion that relates to the revolute joint between the pendulums
 violation = velConstViolation(6:10,:);
 
-% Compute and plot norm-2
-violationNorm = zeros(1,length(time));
+ violationNorm = zeros(1,length(time));
 for iT = 1:length(time)
     violationNorm(1,iT) = norm(violation(:,iT),2);
 end
@@ -306,7 +303,6 @@ plot(time, violationNorm)
 xlabel('Time')
 ylabel('Norm-2 of Vel Const Violation')
 title('Norm-2 of Violation of Velocity Constraint for Rev Joint b/w Pendulums')
-
-savefig('A8P2_VelocityConstraintViolationResults.png')
+saveas(gcf,'A8P2_VelocityConstraintViolationResults.png')
 
 

@@ -377,7 +377,7 @@ classdef body < handle
             % Create B matrix
             B1 = (e0*eye(3,3) + eTilde)*aBar;
             B2 = e*aBar' - (e0*eye(3,3) + eTilde)*aBarTilde;
-            B = 2*[B1 B2];
+            B = 2*[B1, B2];
             obj.myB = B;
         end
         

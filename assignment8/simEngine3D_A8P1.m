@@ -64,7 +64,7 @@ sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 %% Plot starting configuration of system
 % sys.plot(1);
 % view([90 0])
-% savefig('A8P1_MechanismInitialPosition.png');
+% saveas(gcf,'A8P1_MechanismInitialPosition.png');
 
 %% Build revolute joint from basic constraints
 % In future development, include a joint class that automatically creates
@@ -138,14 +138,18 @@ sys.addBasicConstraint(isKinematic,'dp1',a6);
 if 1
     timeStart = 0;
     timeEnd = 10;
-    timeStep = 10^-3;
+    timeStep = 10^-2;
     order = 2;
-    displayFlag = 1;
+    displayFlag = 0;
+    tic;
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, displayFlag);
+    dynamicsAnalysisTime = toc;
     save('multibodySystem_A8P1.mat','sys');
 else
     load('multibodySystem_A8P1.mat')
 end
+
+disp(['Dynamics Analysis for A8P1 took ' num2str(dynamicsAnalysisTime) ' seconds.'])
 
 %% Display torque at the revolute joint 
 % Extract torque for body 2 due to all constraints and time
@@ -166,73 +170,21 @@ plot(time,torqueDriving(2,:))
 plot(time,torqueDriving(3,:));
 xlabel('Time (sec)')
 ylabel('Torque (N*m)')
+axis([0 10 -250 250]);
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ')
-% savefig('A8P1_TorqueVsTime.png')
+title('Torque Due to DP1 Driving Constraint in Pendulum Reference Frame')
+saveas(gcf,'A8P1_TorqueVsTime.png')
 
 figure
 hold on
 plot(time,torqueDriving(1,:))
 plot(time,torqueDriving(2,:))
 [ax, h1, h2] = plotyy(time,torqueDriving(3,:),time,theta);
+ax(1).YLim = [-250 250];
 xlabel('Time (sec)')
 ylabel(ax(1),'Torque (N*m)')
 ylabel(ax(2),'Theta (rad)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ','Theta')
-% savefig('A8P1_TorqueAndThetaVsTime.png')
-
-%% Create plots for origin of body 2 ref frame
-time = sys.myBodies{2}.myTimeTotal;
-rOprime = sys.myBodies{2}.myRTotal;
-rDotOprime = sys.myBodies{2}.myRDotTotal;
-rDDotOprime = sys.myBodies{2}.myRDDotTotal;
-pOprime = sys.myBodies{2}.myPTotal;
-pDotOprime = sys.myBodies{2}.myPDotTotal;
-pDDotOprime = sys.myBodies{2}.myPDDotTotal;
-
-figure
-subplot(3,1,1)
-hold on
-plot(time,rOprime(1,:))
-plot(time,rOprime(2,:))
-plot(time,rOprime(3,:))
-title('Position of point O-prime')
-xlabel('Time (sec)')
-ylabel('Position (m)')
-legend('X','Y','Z')
-hold off
-
-subplot(3,1,2)
-hold on
-plot(time,rDotOprime(1,:))
-plot(time,rDotOprime(2,:))
-plot(time,rDotOprime(3,:))
-title('Velocity of point O-prime')
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-legend('X','Y','Z')
-hold off
-
-subplot(3,1,3)
-hold on
-plot(time,rDDotOprime(1,:))
-plot(time,rDDotOprime(2,:))
-plot(time,rDDotOprime(3,:))
-title('Acceleration of point O-prime')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-legend('X','Y','Z')
-hold off
-
-figure
-hold on
-plot(time,rDDotOprime(1,:))
-plot(time,rDDotOprime(2,:))
-plot(time,rDDotOprime(3,:))
-axis([0 10 -6 6])
-title('Acceleration of point O-prime -- Zoomed In')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-legend('X','Y','Z')
-hold off
+saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')
