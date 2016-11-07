@@ -187,7 +187,7 @@ classdef multibodySystem < handle
                 end
             end
         end
-        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, displayFlag)
+        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, iterationMethod, displayFlag)
             % Perform a dynamics analysis.
             %
             % Function inputs:
@@ -202,6 +202,13 @@ classdef multibodySystem < handle
             %
             % order : int
             %   Order of the BDF method to be used, as specificed by the user
+            %
+            % iterationMethod : string
+            %   Method used to compute iteration matrix. 
+            %   Options are:
+            %   'newtonRaphson'
+            %   'modifiedNewton'
+            %   'quasiNewton'
             %
             % displayFlag : int
             %   Flag for user to indicate if they want to display when each
@@ -263,7 +270,7 @@ classdef multibodySystem < handle
                     % accelerations and lagrange mutlipliers for the first
                     % time step. Within this function we will also compute
                     % the current position and velocity.
-                    obj.performNumericalIntegrationDynamicsAnalysis(t, timestep, order, iT);
+                    obj.performNumericalIntegrationDynamicsAnalysis(t, timestep, order, iT, iterationMethod);
                     
                 end
                 
@@ -333,7 +340,7 @@ classdef multibodySystem < handle
             velConstViolation = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
             obj.myVelocityConstraintViolationTotal(:,stepNumber) = velConstViolation;
         end
-        function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepsize, order, stepNumber)
+        function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepsize, order, stepNumber, iterationMethod)
             % For this current time step, use a numerical integration
             % technique to compute the position, velocity, accelerations, 
             % and Lagrange multipliers.
@@ -342,7 +349,7 @@ classdef multibodySystem < handle
             % time : double
             %   Time for current timestep
             %
-            % stepSize : double
+            % stepsize : double
             %   Step size being used for current simulation.
             %
             % order : int
@@ -350,6 +357,14 @@ classdef multibodySystem < handle
             %
             % stepNumber : int
             %   Current step number of the dynamics analysis.
+            %
+            % iterationMethod : string
+            %   Method used to compute iteration matrix. 
+            %   Options are:
+            %   'newtonRaphson'
+            %   'modifiedNewton'
+            %   'quasiNewton'
+            %
             
             % Set variables for convergence
             maxIter = 50;
@@ -398,6 +413,7 @@ classdef multibodySystem < handle
                 %                 if (iter == 1) && (stepNumber == 1)
                 finiteDiffFlag = 0;
                 if (iter == 1) && (finiteDiffFlag == 1)
+                    
                     obj.computeQuasiNewtonPsi();
                     
                     % Compute a numerical approximation of the Jacobian
@@ -427,11 +443,30 @@ classdef multibodySystem < handle
                 % Extract residual in the system (g matrix)
                 gMatrix = obj.myGMatrix;
                 
-                % Compute the quasi-newton iteration matrix for the first
-                % iteration.
-                if (iter == 1)
-                    obj.computeQuasiNewtonPsi();
-                    %condNum = cond(obj.myPsi)
+                % Compute iteration matrix based on the desired method. For
+                % modified newton and quasi-newton you only compute the
+                % iteration matrix on the first iteration.
+                switch iterationMethod
+                    case 'newtonRaphson'
+                        if (order == 2) && (stepNumber <= 2)
+                            orderTemp = 1;
+                        else
+                            orderTemp = 2;
+                        end
+                        obj.computeNewtonRaphsonPsi(stepsize, orderTemp);
+                    case 'modifiedNewton'
+                        if (iter == 1)
+                            if (order == 2) && (stepNumber <= 2)
+                                orderTemp = 1;
+                            else
+                                orderTemp = 2;
+                            end
+                            obj.computeNewtonRaphsonPsi(stepsize, orderTemp);
+                        end
+                    case 'quasiNewton'
+                        if (iter == 1)
+                            obj.computeQuasiNewtonPsi();
+                        end
                 end
                 psi = obj.myPsi;
                 
@@ -547,6 +582,48 @@ classdef multibodySystem < handle
             else
                 obj.updateSystemState([],[],rDDotGuess,[],[],pDDotGuess,time);
             end
+            
+        end
+        function obj = computeNewtonRaphsonPsi(obj, stepsize, order)
+            % Compute the iteration matrix (psi) for the Newton-Raphson
+            % method
+            %
+            % Function inputs:
+            % stepsize : double
+            %   Step size being used for current simulation.
+            %
+            % order : int
+            %   Order of the BDF method to be used, as specificed by the user
+            
+            if (order == 1)
+                beta0 = 1;
+            elseif (order == 2)
+                beta0 = 2/3;
+            end
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            % Extract terms for iteration matrix. All of the terms were
+            % previously compute when we computed the Gmatrix, so they do
+            % not need to be recomputed.
+            massMatrix = obj.myMassMatrix;
+            JpMatrix = obj.myJpMatrixTotal;
+            Pmatrix = obj.myPMatrix;
+            phiPartialR = obj.myPhiPartialR;
+            phiPartialP = obj.myPhiPartialP;
+            nB = obj.myNumBodiesMinusGround;
+            nC = obj.myNumConstraints;
+            
+            % Populate components of psi matrix
+            fatM = [massMatrix, zeros(3*nB,4*nB), zeros(3*nB,nB);
+                zeros(4*nB,3*nB), JpMatrix, Pmatrix';
+                zeros(nB,3*nB), Pmatrix, zeros(nB,nB)];
+            fatC = [phiPartialR, phiPartialP, zeros(nC,nB)];
+            
+            % Matrix Assemble!!!
+            psi = [fatM fatC';
+                fatC zeros(nC,nC)];
+            obj.myPsi = psi;
             
         end
         function obj = computeQuasiNewtonPsi(obj)
