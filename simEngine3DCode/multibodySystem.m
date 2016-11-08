@@ -614,6 +614,7 @@ classdef multibodySystem < handle
             
             % Compute the partial derivative of the constraint forces w.r.t
             % r.
+            obj.computePartialDerivativeConstraintForces();
             
             % Compute the partial derivative of the constraint forces w.r.t
             % p.
@@ -653,6 +654,8 @@ classdef multibodySystem < handle
             
             % Compute partial derivative of Jp*pDDot w.r.t p.
             
+            % Compute components of psi
+            
             
             
             
@@ -682,6 +685,65 @@ classdef multibodySystem < handle
                 fatC zeros(nC,nC)];
             obj.myPsi = psi;
             
+        end
+        function obj = computePartialDerivativeConstraintForces(obj)
+            % Compute the partial derivative of constraint forces and
+            % torques w.r.t r and p.
+            
+            % Seed the resulting matrices
+            nBodies = obj.myNumBodiesMinusGround;
+            nConst = obj.myNumConstraints;
+            constForcesTotalPartialR = zeros(3*nBodies,3*nBodies);
+            constForcesTotalPartialP = zeros(3*nBodies,4*nBodies);
+            constTorquesTotalPartialR = zeros(4*nBodies,3*nBodies);
+            constTorquesTotalPartialP = zeros(4*nBodies,4*nBodies);
+            
+            % Loop through each constraint. Compute the partial derivatives
+            % of the reaction forces and torques for this constraint.
+            % Place these in the correct location of the overall constraint
+            % matrix.
+            for iC = 1:nConst  
+            % Extract the bodies for this constraint
+                bodyI = obj.myConstraints{iC}.myBodyI;
+                bodyJ = obj.myConstraints{iC}.myBodyJ;
+                
+                % Compute phiPartialR
+                time = obj.myTime;
+                constraintForcePartialRFlag = 1;
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, 0, 0, constraintForcePartialRFlag, 0, 0, 0);
+                constForcePartialR = obj.myConstraints{iC}.myConstraintForcePartialR;
+%                 phiR = obj.myConstraints{iC}.myPhiPartialR;
+                
+                % If one of the bodies in the system is the ground adjust
+                % the body numbers accordingly.
+                if (obj.myBodyIsGround == 1)
+                    if (obj.myBodies{bodyI}.myIsGround == 1)
+                        % Only care about bodyJ in this case.
+                        % Need to decrease body number by 1 to properly
+                        % populate the Jacobian. This only works because I
+                        % am forcing the ground to be body 1.
+                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR;
+                        
+                    elseif (obj.myBodies{bodyJ}.myIsGround == 1)
+                        % Only care about bodyI in this case.
+                        % Need to decrease body number by 1 to properly
+                        % populate the Jacobian.
+                        phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR;
+                        
+                    else
+                        % Include both bodyI and bodyJ in this case because
+                        % neither is the ground, but still decrease body
+                        % number by 1.
+                        % Populate the partial derivative w.r.t. position.
+                        phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR(1:3);
+                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR(4:6);                        
+                    end
+                else
+                    % Populate the partial derivative w.r.t. position.
+                    phiPartialR(iC,(3*bodyI - 2):3*bodyI) = phiR(1:3);
+                    phiPartialR(iC,(3*bodyJ - 2):3*bodyJ) = phiR(4:6);
+                end
+            end
         end
         function obj = computeQuasiNewtonPsi(obj)
             % Compute the iteration matrix (psi) for the quasi-newton
@@ -1364,7 +1426,7 @@ classdef multibodySystem < handle
                 % Compute phiPartialR
                 time = obj.myTime;
                 phiPartialRFlag = 1;
-                obj.computeConstraintProperties(iC, time, 0, 0, 0, phiPartialRFlag, 0);
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, phiPartialRFlag, 0, 0, 0, 0, 0);
                 phiR = obj.myConstraints{iC}.myPhiPartialR;
                 
                 % If one of the bodies in the system is the ground adjust
@@ -1429,7 +1491,7 @@ classdef multibodySystem < handle
                 % Compute phiPartialR
                 time = obj.myTime;
                 phiPartialPFlag = 1;
-                obj.computeConstraintProperties(iC, time, 0, 0, 0, 0, phiPartialPFlag);
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, 0, phiPartialPFlag, 0, 0, 0, 0);
                 phiP = obj.myConstraints{iC}.myPhiPartialP;
                 
                 % If one of the bodies in the system is the ground adjust
@@ -1902,7 +1964,7 @@ classdef multibodySystem < handle
                 if (obj.myConstraints{iC}.myIsKinematic == 1)
                     time = obj.myTime;
                     phiFlag = 1;
-                    obj.computeConstraintProperties(iC, time, phiFlag, 0, 0, 0, 0);
+                    obj.computeConstraintProperties(iC, time, phiFlag, 0, 0, 0, 0, 0, 0, 0, 0);
                     phiK(iC,:) = obj.myConstraints{iC}.myPhi;
                 end
             end
@@ -1925,7 +1987,7 @@ classdef multibodySystem < handle
                 if (obj.myConstraints{iC}.myIsKinematic == 0)
                     time = obj.myTime;
                     phiFlag = 1;
-                    obj.computeConstraintProperties(iC, time, phiFlag, 0, 0, 0, 0);
+                    obj.computeConstraintProperties(iC, time, phiFlag, 0, 0, 0, 0, 0, 0, 0, 0);
                     phiD(iD,:) = obj.myConstraints{iC}.myPhi;
                     iD = iD + 1;
                 end
@@ -1997,7 +2059,7 @@ classdef multibodySystem < handle
                 time = obj.myTime;
                 phiPartialRFlag = 1;
                 phiPartialPFlag = 1;
-                obj.computeConstraintProperties(iC, time, 0, 0, 0, phiPartialRFlag, phiPartialPFlag);
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, phiPartialRFlag, phiPartialPFlag, 0, 0, 0, 0);
                 phiPartialR = obj.myConstraints{iC}.myPhiPartialR;
                 phiPartialP = obj.myConstraints{iC}.myPhiPartialP;
                 
@@ -2089,7 +2151,7 @@ classdef multibodySystem < handle
             time = obj.myTime;
             for iC = 1:nKDconst
                 nuFlag = 1;
-                obj.computeConstraintProperties(iC, time, 0, nuFlag, 0, 0, 0);
+                obj.computeConstraintProperties(iC, time, 0, nuFlag, 0, 0, 0, 0, 0, 0, 0);
                 nuTotal(iC,:) = obj.myConstraints{iC}.myNu;
             end
             
@@ -2117,7 +2179,7 @@ classdef multibodySystem < handle
             % Loop through each constraint and compute gamma
             for iC = 1:nKDconst
                 gammaFlag = 1;
-                obj.computeConstraintProperties(iC, time, 0, 0, gammaFlag, 0, 0);
+                obj.computeConstraintProperties(iC, time, 0, 0, gammaFlag, 0, 0, 0, 0, 0, 0);
                 gammaTotal(iC,:) = obj.myConstraints{iC}.myGamma;
             end
             
@@ -2407,23 +2469,31 @@ classdef multibodySystem < handle
             
             
         end
-        function obj = computeConstraintProperties(obj, constraintNumber, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag)
+        function obj = computeConstraintProperties(obj, constraintNumber, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag, constraintForcePartialRFlag, constraintForcePartialPFlag, constraintTorquePartialRFlag, constraintTorquePartialPFlag)
             % Determine type of constraint
             cType = obj.myConstraints{constraintNumber}.myConstraintType;
             
             % Call the correct constraint class based off constraint type.
             switch cType
                 case 'DP1'
-                    obj.myConstraints{constraintNumber}.computeDP1constraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
+                    obj.myConstraints{constraintNumber}.computeDP1constraint(obj, time, phiFlag, nuFlag, gammaFlag, ...
+                        phiPartialRFlag, phiPartialPFlag, constraintForcePartialRFlag, constraintForcePartialPFlag, ...
+                        constraintTorquePartialRFlag, constraintTorquePartialPFlag, constraintNumber);
                     
                 case 'DP2'
-                    obj.myConstraints{constraintNumber}.computeDP2constraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
+                    obj.myConstraints{constraintNumber}.computeDP2constraint(obj, time, phiFlag, nuFlag, gammaFlag, ...
+                        phiPartialRFlag, phiPartialPFlag, constraintForcePartialRFlag, constraintForcePartialPFlag, ...
+                        constraintTorquePartialRFlag, constraintTorquePartialPFlag, constraintNumber);
                     
                 case 'D'
-                    obj.myConstraints{constraintNumber}.computeDconstraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
+                    obj.myConstraints{constraintNumber}.computeDconstraint(obj, time, phiFlag, nuFlag, gammaFlag, ...
+                        phiPartialRFlag, phiPartialPFlag, constraintForcePartialRFlag, constraintForcePartialPFlag, ...
+                        constraintTorquePartialRFlag, constraintTorquePartialPFlag, constraintNumber);
                     
                 case 'CD'
-                    obj.myConstraints{constraintNumber}.computeCDconstraint(obj, time, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag);
+                    obj.myConstraints{constraintNumber}.computeCDconstraint(obj, time, phiFlag, nuFlag, gammaFlag, ...
+                        phiPartialRFlag, phiPartialPFlag, constraintForcePartialRFlag, constraintForcePartialPFlag, ...
+                        constraintTorquePartialRFlag, constraintTorquePartialPFlag, constraintNumber);
             end
         end
         

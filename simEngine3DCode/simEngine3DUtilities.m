@@ -151,7 +151,18 @@ classdef simEngine3DUtilities
             B1 = (e0*eye(3,3) + eTilde)*aBar;
             B2 = e*aBar' - (e0*eye(3,3) + eTilde)*aBarTilde;
             B = 2*[B1 B2];
-        end        
+        end  
+        function Kmatrix = computeKmatrix(aBar, b)
+            bTilde = simEngine3DUtilities.skewSym(b);
+            aBarTilde = simEngine3DUtilities.skewSym(aBar);
+            
+            K = zeros(4,4);
+            K(1,1) = aBar'*b;
+            K(1,2) = aBar'*bTilde;
+            K(2,1) = aBarTilde*b;
+            K(2,2) = aBar*b' + b*aBar' - aBar'*b*[1 0 0; 0 1 0; 0 0 1];
+            
+            Kmatrix = 2*K;            
     end
     
 end

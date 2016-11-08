@@ -41,7 +41,10 @@ classdef DP1constraint < handle
             obj.myFtDDot = ftDDot;
             
         end
-        function obj = computeDP1constraint(obj, sys, t, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag)
+        function obj = computeDP1constraint(obj, sys, t, phiFlag, nuFlag, gammaFlag, ...
+                phiPartialRFlag, phiPartialPFlag, ...
+                constraintForcePartialRFlag, constraintForcePartialPFlag, ...
+                constraintTorquePartialRFlag, constraintTorquePartialPFlag, constraintNumber)
             % Computes necessary quantities for DP1 constraint
             % Possible quantities to compute are described in the
             % properties of this class.
@@ -87,6 +90,18 @@ classdef DP1constraint < handle
             end
             if(phiPartialPFlag == 1)
                 obj.computePhiPartialP(sys);
+            end
+            if (constraintForcePartialRFlag == 1)
+                obj.computeConstraintForcePartialR(sys, constraintNumber);
+            end
+            if (constraintForcePartialPFlag == 1)
+                obj.computeConstraintForcePartialP(sys, constraintNumber);
+            end
+            if (constraintTorquePartialRFlag == 1)
+                obj.computeConstraintTorquePartialR(sys, constraintNumber);
+            end
+            if (constraintTorquePartialPFlag == 1)
+                obj.computeConstraintTorquePartialP(sys, constraintNumber);
             end
         end
         function obj = computePhi(obj,sys)
@@ -260,6 +275,199 @@ classdef DP1constraint < handle
             end
             
             obj.myPhiPartialP = phiPartialP;
+        end
+        function obj = computeConstraintForcePartialR(obj, sys, constraintNumber)
+            % Compute the partial derivative of the forces due to this
+            % constraint, w.r.t position (r)
+            
+            % Extract the lagrange multiplier that relates to this
+            % constraint
+            lambda = sys.myConstraintLagrangeMultipliers(constraintNumber);
+            
+            % Extract needed attributes
+            bodyI = obj.myBodyI;
+            bodyJ = obj.myBodyJ;
+            
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % If bodyJ is the ground, this body contributes
+            % nothing to the Jacobian
+            if (isGroundJ == 1);
+                constForcePartialRI = zeros(3,3);
+                
+                constForcePartialR = lambda*constForcePartialRI;
+               
+                % Special case when body I is ground
+            elseif (isGroundI == 1);
+                constForcePartialRJ = zeros(3,3);
+                
+                constForcePartialR = lambda*constForcePartialRJ;
+            else
+                constForcePartialRI = zeros(6,3);
+                constForcePartialRJ = zeros(6,3);
+                constForcePartialR = lambda*[constForcePartialRI constForcePartialRJ];                
+            end
+            
+            obj.myConstraintForcePartialR = constForcePartialR;
+        end
+        function obj = computeConstraintForcePartialP(obj, sys, constraintNumber)
+            % Compute the partial derivative of the forces due to this
+            % constraint, w.r.t orientation (p)
+            
+            % Extract the lagrange multiplier that relates to this
+            % constraint
+            lambda = sys.myConstraintLagrangeMultipliers(constraintNumber);
+            
+            % Extract needed attributes
+            bodyI = obj.myBodyI;
+            bodyJ = obj.myBodyJ;
+            
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % If bodyJ is the ground, this body contributes
+            % nothing to the Jacobian
+            if (isGroundJ == 1);
+                constForcePartialPI = zeros(3,4);
+                
+                constForcePartialP = lambda*constForcePartialPI;
+               
+                % Special case when body I is ground
+            elseif (isGroundI == 1);
+                constForcePartialPJ = zeros(3,4);
+                
+                constForcePartialP = lambda*constForcePartialPJ;
+            else
+                constForcePartialPI = zeros(6,4);
+                constForcePartialPJ = zeros(6,4);
+                constForcePartialP = lambda*[constForcePartialPI constForcePartialPJ];                
+            end
+            
+            obj.myConstraintForcePartialP = constForcePartialP;
+        end
+        function obj = computeConstraintTorquePartialR(obj, sys, constraintNumber)
+            % Compute the partial derivative of the torques due to this
+            % constraint, w.r.t position (r)
+            
+            % Extract the lagrange multiplier that relates to this
+            % constraint
+            lambda = sys.myConstraintLagrangeMultipliers(constraintNumber);
+            
+            % Extract needed attributes
+            bodyI = obj.myBodyI;
+            bodyJ = obj.myBodyJ;
+            
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % If bodyJ is the ground, this body contributes
+            % nothing to the Jacobian
+            if (isGroundJ == 1);
+                constTorquePartialRI = zeros(4,3);
+                
+                constTorquePartialR = lambda*constTorquePartialRI;
+               
+                % Special case when body I is ground
+            elseif (isGroundI == 1);
+                constTorquePartialRJ = zeros(4,3);
+                
+                constTorquePartialR = lambda*constTorquePartialRJ;
+            else
+                constTorquePartialRI = zeros(8,3);
+                constTorquePartialRJ = zeros(8,3);
+                constTorquePartialR = lambda*[constTorquePartialRI constTorquePartialRJ];                
+            end
+            
+            obj.myConstraintTorquePartialR = constTorquePartialR;          
+        end
+        function     obj = computeConstraintTorquePartialP(obj, sys, constraintNumber)
+            % Compute the partial derivative of the torques due to this
+            % constraint, w.r.t orientation (p)
+            
+            % Extract the lagrange multiplier that relates to this
+            % constraint
+            lambda = sys.myConstraintLagrangeMultipliers(constraintNumber);
+            
+            % Extract needed attributes
+            bodyI = obj.myBodyI;
+            bodyJ = obj.myBodyJ;
+            aBarI = obj.myaBarI;
+            aBarJ = obj.myaBarJ;
+            
+            % Check if either body is the ground
+            isGroundI = sys.myBodies{bodyI}.myIsGround;
+            isGroundJ = sys.myBodies{bodyJ}.myIsGround;
+            
+            % If bodyJ is the ground, this body contributes
+            % nothing to the Jacobian
+            if (isGroundJ == 1);
+                % Compute orientation matrix, A, for bodyJ
+                sys.myBodies{bodyJ}.computeA();
+                Aj = sys.myBodies{bodyJ}.myA;
+                               
+                % Compute a for bodyJ
+                aj = Aj*aBarJ;
+                
+                % Compute constTorquePartialP
+                Kmatrix = simEngine3DUtilities.computeKMatrix(aBarI, aj);
+                constTorquePartialPI = Kmatrix;
+                constTorquePartialP = lambda*constTorquePartialPI;
+                
+                % Special case when body I is ground
+            elseif (isGroundI == 1);
+                % Compute orientation matrix, A, for bodyI
+                sys.myBodies{bodyI}.computeA();
+                Ai = sys.myBodies{bodyI}.myA;
+                               
+                % Compute a for bodyJ
+                ai = Ai*aBarI;
+                
+                % Compute constTorquePartialP
+                Kmatrix = simEngine3DUtilities.computeKMatrix(aBarJ, ai);
+                constTorquePartialPJ = Kmatrix;
+                constTorquePartialP = lambda*constTorquePartialPJ;
+                
+            else
+                % Compute orientation matrix, A, for each body
+                sys.myBodies{bodyI}.computeA();
+                Ai = sys.myBodies{bodyI}.myA;
+                
+                sys.myBodies{bodyJ}.computeA();
+                Aj = sys.myBodies{bodyJ}.myA;
+                
+                % Compute B(p, aBar) for bodyI and body J
+                sys.myBodies{bodyI}.computeB(aBarI);
+                BmatrixI = sys.myBodies{bodyI}.myB;
+                
+                sys.myBodies{bodyJ}.computeB(aBarJ);
+                BmatrixJ = sys.myBodies{bodyJ}.myB;
+                
+                % Compute a for both bodies
+                ai = Ai*aBarI;
+                aj = Aj*aBarJ;
+                
+                % Compute K matrix for both bodies
+                KmatrixAbarI = simEngine3DUtilities.computeKMatrix(aBarI, aj);
+                KmatrixAbarJ = simEngine3DUtilities.computeKMatrix(aBarJ, ai);
+                
+                % Compute constTorquePartialP
+                constTorquePartialPI = zeros(8,4);
+                constTorquePartialPI(1:4,:) = KmatrixAbarI;
+                constTorquePartialPI(5:8,:) = BmatrixJ'*BmatrixI;
+                
+                constTorquePartialPJ = zeros(8,4);
+                constTorquePartialPJ(1:4,:) = BmatrixI'*BmatrixJ;
+                constTorquePartialPJ(5:8,:) = KmatrixAbarJ;
+                
+                
+                constTorquePartialP = lambda*[constTorquePartialPI constTorquePartialPJ];
+            end
+            
+            obj.myConstraintTorquePartialP = constTorquePartialP;
         end
     end
     

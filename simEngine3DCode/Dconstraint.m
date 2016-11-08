@@ -40,7 +40,10 @@ classdef Dconstraint < handle
             obj.myFtDot = ftDot;
             obj.myFtDDot = ftDDot;
         end
-        function obj = computeDconstraint(obj, sys, t, phiFlag, nuFlag, gammaFlag, phiPartialRFlag, phiPartialPFlag)
+        function obj = computeDconstraint(obj, sys, t, phiFlag, nuFlag, gammaFlag, ...
+                phiPartialRFlag, phiPartialPFlag, ...
+                constraintForcePartialRFlag, constraintForcePartialPFlag, ...
+                constraintTorquePartialRFlag, constraintTorquePartialPFlag, constraintNumber)
             % Computes necessary quantities for D constraint
             % Possible quantities to compute are described in the
             % properties of this class.
@@ -86,6 +89,18 @@ classdef Dconstraint < handle
             end
             if (phiPartialPFlag == 1)
                 obj = obj.computePhiPartialP(sys);
+            end
+            if (constraintForcePartialRFlag == 1)
+                obj.computeConstraintForcePartialR(sys, constraintNumber);
+            end
+            if (constraintForcePartialPFlag == 1)
+                obj.computeConstraintForcePartialP(sys, constraintNumber);
+            end
+            if (constraintTorquePartialRFlag == 1)
+                obj.computeConstraintTorquePartialR(sys, constraintNumber);
+            end
+            if (constraintTorquePartialPFlag == 1)
+                obj.computeConstraintTorquePartialP(sys, constraintNumber);
             end
         end
         function obj = computePhi(obj,sys)
