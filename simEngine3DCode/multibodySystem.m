@@ -601,6 +601,63 @@ classdef multibodySystem < handle
                 beta0 = 2/3;
             end
             
+            % Extract terms for iteration matrix. All of the terms were
+            % previously compute when we computed the Gmatrix, so they do
+            % not need to be recomputed.
+            massMatrix = obj.myMassMatrix;
+            JpMatrix = obj.myJpMatrixTotal;
+            Pmatrix = obj.myPMatrix;
+            phiPartialR = obj.myPhiPartialR;
+            phiPartialP = obj.myPhiPartialP;
+            nB = obj.myNumBodiesMinusGround;
+            nC = obj.myNumConstraints;
+            
+            % Compute the partial derivative of the constraint forces w.r.t
+            % r.
+            
+            % Compute the partial derivative of the constraint forces w.r.t
+            % p.
+            
+            % Compute the partial derivative of the constraint torques
+            % w.r.t r.
+            
+            % Compute the partial derivative of the constraint torques
+            % w.r.t p.
+            
+            % Compute the partial derivative of the externally applied
+            % forces to r.
+            
+            % Compute the partial derivative of the externally applied
+            % forces with respect to rDot.
+            
+            % Compute the partial derivative of the externally applied
+            % forces to p.
+            
+            % Compute the partial derivative of the externally applied
+            % forces with respect to pDot.
+            
+            % Compute the partial derivative of the externally applied
+            % torques to r.
+            
+            % Compute the partial derivative of the externally applied
+            % torques with respect to rDot.
+            
+            % Compute the partial derivative of the externally applied
+            % torques to p.
+            
+            % Compute the partial derivative of the externally applied
+            % torques with respect to pDot.
+            
+            % Compute partial derivative of Euler normalization constraint
+            % w.r.t p.
+            
+            % Compute partial derivative of Jp*pDDot w.r.t p.
+            
+            
+            
+            
+            
+            
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
             % Extract terms for iteration matrix. All of the terms were

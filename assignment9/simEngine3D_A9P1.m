@@ -141,8 +141,9 @@ if 1
     timeStep = 10^-2;
     order = 2;
     displayFlag = 0;
+    method = 'quasiNewton';
     tic;
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     dynamicsAnalysisTime = toc;
     save('multibodySystem_A8P1.mat','sys');
 else
