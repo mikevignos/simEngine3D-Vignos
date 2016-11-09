@@ -1,5 +1,5 @@
 classdef simEngine3DUtilities
-    %simEngine3DUtilities.m 
+    %simEngine3DUtilities.m
     % This class provides a collection of functions that are commonly used
     % within simEngine3D.
     methods (Static)
@@ -12,7 +12,7 @@ classdef simEngine3DUtilities
                 z 0 -x;
                 -y x 0];
         end
-        function A = p2A(p) 
+        function A = p2A(p)
             % Orientation matrix A from euler parameters p
             %
             % Function input:
@@ -35,14 +35,14 @@ classdef simEngine3DUtilities
             %   A = [3x3] orientation matrix
             % output:
             %   p = [e0;e1;e2;e3] euler parameters
-
+            
             e0 = sqrt((trace(A)+1)/4); % the sign of e0 is arbitrary
             
             if e0 ~= 0
                 e1 = (A(3,2)-A(2,3))/(4*e0);
                 e2 = (A(1,3)-A(3,1))/(4*e0);
                 e3 = (A(2,1)-A(1,2))/(4*e0);
-
+                
             elseif e0 == 0
                 disp('Not implemented yet, see slide 25 (9/21/16) or page 341')
                 return
@@ -52,7 +52,7 @@ classdef simEngine3DUtilities
         end
         function dij = computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ)
             % Computes a vector (dij) from point sBarIP to sBarJQ in the
-            % global reference frame. 
+            % global reference frame.
             %
             % Function inputs:
             % sys : multibodySystem class
@@ -70,15 +70,15 @@ classdef simEngine3DUtilities
             % sBarIP : 3x1 double
             %   Vector defining the location of the tail of the vector dij
             %   in the body i reference frame
-            % 
+            %
             % sBarJQ : 3x1 double
             %   Vector defining the location of the head of the vector dij
-            %   in the body j reference frame  
+            %   in the body j reference frame
             %
             % Function outputs:
             % dij : 3x1 double
             %   Vector from sBarIP to sBarJQ in the global reference frame.
-            %   
+            %
             
             % Extract the current position and orientation matrix for each
             % body
@@ -95,7 +95,7 @@ classdef simEngine3DUtilities
         end
         function dijDot = computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ)
             % Computes time derivative of a vector (dij) from point sBarIP to sBarJQ in the
-            % global reference frame. 
+            % global reference frame.
             %
             % Function inputs:
             % sys : multibodySystem class
@@ -113,16 +113,16 @@ classdef simEngine3DUtilities
             % sBarIP : 3x1 double
             %   Vector defining the location of the tail of the vector dij
             %   in the body i reference frame
-            % 
+            %
             % sBarJQ : 3x1 double
             %   Vector defining the location of the head of the vector dij
-            %   in the body j reference frame  
+            %   in the body j reference frame
             %
             % Function outputs:
             % dijDot : 3x1 double
-            %   Time derivative of vector from sBarIP to sBarJQ in the 
+            %   Time derivative of vector from sBarIP to sBarJQ in the
             %   global reference frame.
-            %   
+            %
             
             % Extract the current position time derivative for each body
             riDot = sys.myBodies{bodyI}.myRDot;
@@ -151,7 +151,7 @@ classdef simEngine3DUtilities
             B1 = (e0*eye(3,3) + eTilde)*aBar;
             B2 = e*aBar' - (e0*eye(3,3) + eTilde)*aBarTilde;
             B = 2*[B1 B2];
-        end  
+        end
         function Kmatrix = computeKmatrix(aBar, b)
             bTilde = simEngine3DUtilities.skewSym(b);
             aBarTilde = simEngine3DUtilities.skewSym(aBar);
@@ -162,7 +162,8 @@ classdef simEngine3DUtilities
             K(2,1) = aBarTilde*b;
             K(2,2) = aBar*b' + b*aBar' - aBar'*b*[1 0 0; 0 1 0; 0 0 1];
             
-            Kmatrix = 2*K;            
+            Kmatrix = 2*K;
+        end
     end
     
 end
