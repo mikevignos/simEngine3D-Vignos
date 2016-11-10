@@ -1,6 +1,7 @@
-%% simEngine3D_A8P1.m
+%% simEngine3D_A9P1.m
 % File for dynamic simulation of simple pendulum.
 clear; close all; clc;
+addpath('simEngine3DCode');
 
 %% Create instance of multibody system
 sys = multibodySystem();
@@ -152,6 +153,8 @@ end
 
 disp(['Dynamics Analysis for A9P1 with Newton-Raphson took ' num2str(dynamicsAnalysisTime) ' seconds.'])
 
+
+
 %% Extract accelerations of pendulum and number of iterations for Newton-Raphson method
 rDDotNR = sys.myBodies{2}.myRDDotTotal;
 nIterNR = sys.myIterCountTotal;
@@ -248,34 +251,51 @@ rDDotQuasiNvsNR = abs(rDDotQuasiN - rDDotNR);
 rDDotModNvsNR = abs(rDDotModN - rDDotNR);
 
 figure
-hold on
-plot(time, rDDotQuasiNvsNR(1,:));
-plot(time, rDDotQuasiNvsNR(2,:));
-plot(time, rDDotQuasiNvsNR(3,:));
+subplot(3,1,1)
+plot(time, rDDotQuasiNvsNR(1,:),'r');
+ylabel('Difference (m/s^2)')
+legend('X');
+title('Quasi-Newton vs Newton-Raphson Acceleration');
+
+subplot(3,1,2)
+plot(time, rDDotQuasiNvsNR(2,:),'g');
 xlabel('Time (sec)')
-ylabel('Difference in Acceleration (m/s^2)')
-title('Quasi-Newton vs Newton-Raphson')
-legend('X','Y','Z');
-hold off
+ylabel('Difference (m/s^2)')
+legend('Y');
+
+subplot(3,1,3)
+plot(time, rDDotQuasiNvsNR(3,:),'b');
+xlabel('Time (sec)')
+ylabel('Difference (m/s^2)')
+legend('Z');
 saveas(gcf,'A9P1_AccelerationDiff_QuasiNewtonvsNewtonRaphson.png')
 
 figure
-hold on
-plot(time, rDDotModNvsNR(1,:));
-plot(time, rDDotModNvsNR(2,:));
-plot(time, rDDotModNvsNR(3,:));
+subplot(3,1,1)
+plot(time, rDDotModNvsNR(1,:),'r');
+title('Modified-Newton vs Newton-Raphson Acceleration')
 xlabel('Time (sec)')
-ylabel('Difference in Acceleration (m/s^2)')
-title('Modified-Newton vs Newton-Raphson')
-legend('X','Y','Z');
-hold off
+ylabel('Difference (m/s^2)')
+legend('X');
+
+subplot(3,1,2)
+plot(time, rDDotModNvsNR(2,:),'g');
+xlabel('Time (sec)')
+ylabel('Difference (m/s^2)')
+legend('Y');
+
+subplot(3,1,3)
+plot(time, rDDotModNvsNR(3,:),'b');
+xlabel('Time (sec)')
+ylabel('Difference (m/s^2)')
+legend('Z');
 saveas(gcf,'A9P1_AccelerationDiff_ModNewtonvsNewtonRaphson.png')
 
 figure
 hold on
-plot(time,nIterNR);
-plot(time,nIterModN);
-plot(time,nIterQuasiN);
+plot(time,nIterNR,'LineWidth',4);
+plot(time,nIterModN,'LineWidth',2);
+plot(time,nIterQuasiN,'LineWidth',1);
 xlabel('Time (sec)')
 ylabel('# of Iterations')
 title('Number of Iterations to Converge')
