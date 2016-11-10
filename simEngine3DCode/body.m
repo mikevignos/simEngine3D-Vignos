@@ -13,6 +13,7 @@ classdef body < handle
         myJpMatrix; % 4*G'*J*G
         myG; % Current G matrix for the body
         myGDot; % Current Gdot matrix for this body.
+        myGDDot; % Current Gddot matrix for this body.
         myPoints; % Structure containing the important points on the body.
         myVectors; % Structure containing important vectors on the body
         myP; % Euler parameters of local reference frame for given body
@@ -43,6 +44,9 @@ classdef body < handle
         myTorqueHat; % torqueHat vector for this specific body. This value 
                      % depends on the current orientation of the body, so 
                      % it is only computed when the user requests it.
+        myTorqueHatPartialP; % Partial derivative of torqueHat vector w.r.t. p
+        myTorqueHatPartialPDot; % Partial derivative of torqueHat vector w.r.t. pDot
+        myJpDDotPartialP; % Partial derivate of [Jp*pDDot] w.r.t. p for this body.
     end
     
     properties (Dependent)
@@ -89,7 +93,6 @@ classdef body < handle
             obj.myPDDotTotal = zeros(4,1);
             
         end
-        
         function obj = updateBody(obj, p, pDot, pDDot, r, rDot, rDDot, time)
             % Update the current orientation and position of the given body
             obj.myP = p;
@@ -119,44 +122,6 @@ classdef body < handle
             end
             obj.myConstraintTorquesOmega = torqueOmega;
         end
-        function obj = computeConstraintTorques(obj,sys)
-            % Compute the torques acting on this body due to all of the
-            % constraints in the system
-            nConst = sys.myNumConstraints;
-            bodyNum = obj.myBodyNumber;
-            
-            % Compute Gmatrix for this body.
-            obj.computeGmatrix();
-            G = obj.myG;           
-            
-            % Loop through all of the constraints. If the constraint acts
-            % on this body, compute the torque acting on the body. If it
-            % does not, then just set the torque equal to [0 0 0]'.
-            % If the body is the ground, then set all the torques due to
-            % the constraints equal to zero.
-            torqueOmega = zeros(3,nConst);
-            if (obj.myIsGround == 1)
-                torqueOmega = zeros(3,nConst);
-            else
-                for iC = 1:nConst
-                    bodyI = sys.myConstraints{iC}.bodyI;
-                    bodyJ = sys.myConstraints{iC}.bodyJ;
-                    
-                    if (bodyNum == bodyI)
-                        tOmega = 0.5*G*sys.myConstraintTorques(:,iC);
-                        
-                    elseif (bodyNum == bodyJ)
-                    else
-                        torqueOmega(:,iC) = [0 0 0]';
-                    end
-                    
-                    
-                end
-            end
-            
-            obj.myCostraintTorques = torqueOmega;
-            
-        end
         function obj = computeGmatrix(obj)
             % Compute the current G matrix for the body
             p = obj.myP;
@@ -176,6 +141,16 @@ classdef body < handle
             G2 = -eDotTilde + e0Dot*eye(3,3);
             GDot = [-eDot, G2];
             obj.myGDot = GDot;            
+        end
+        function obj = computeGDDotMatrix(obj)
+            % Compute the current GDDot matrix for the body
+            pDDot = obj.myPDDot;
+            e0DDot = pDDot(1);
+            eDDot = pDDot(2:4);
+            eDDotTilde = simEngine3DUtilities.skewSym(eDDot);
+            G2 = -eDDotTilde + e0DDot*[1 0 0; 0 1 0; 0 0 1];
+            GDDot = [-eDDot, G2];
+            obj.myGDDot = GDDot;  
         end
         function obj = computeJpMatrix(obj)
             % Extract J matrix for body.
@@ -279,6 +254,72 @@ classdef body < handle
             % Compute torqueHat for this body.
             torqueHat = 2*G'*torqueSum + 8*GDot'*Jbar*GDot*p;
             obj.myTorqueHat = torqueHat; 
+        end
+        function obj = computeJpDDotPartialP(obj)
+            % Compute partial derivative of torqueHat w.r.t pDot for this
+            % body.
+            % Compute G, Gdot, Gddot
+            obj.computeGmatrix();
+            G = obj.myG;
+            
+            obj.computeGDotMatrix();
+            GDot = obj.myGDot;
+            
+            obj.computeGDDotMatrix();
+            GDDot = obj.myGDDot;
+            
+            % Extract polar moment of inertia matrix and p
+            pDDot = obj.myPDDot;
+            Jbar = obj.myJMatrix;
+            
+            % Compute JpDDotPartialP for this body
+            a = Jbar*G*pDDot;
+            aTilde = simEngine3DUtilities.skewSym(a);
+            Ta = [0 -a';
+                a -aTilde];
+            JpDDotPartialP = 4*(Ta - G'*Jbar*GDDot);
+            obj.myJpDDotPartialP = JpDDotPartialP;
+        end
+        function obj = computeTorqueHatPartialPDot(obj)
+            % Compute partial derivative of torqueHat w.r.t pDot for this
+            % body.
+            % Compute G and Gdot
+            obj.computeGmatrix();
+            G = obj.myG;
+            
+            obj.computeGDotMatrix();
+            GDot = obj.myGDot;
+            
+            % Extract polar moment of inertia matrix and p
+            p = obj.myP;
+            Jbar = obj.myJMatrix;
+            
+            % Compute partial derivative of torqueHat w.r.t pDot for this
+            % body.
+            a = Jbar*GDot*p;
+            aTilde = simEngine3DUtilities.skewSym(a);
+            Ta = [0 -a';
+                a -aTilde];
+            torqueHatPartialPDot = -8*GDot'*Jbar*G + 8*Ta;
+            
+            obj.myTorqueHatPartialPDot = torqueHatPartialPDot;
+            
+        end
+        function obj = computeTorqueHatPartialP(obj)
+            % Compute partial derivative of torqueHat w.r.t p for this
+            % body.
+            % Compute Gdot
+            obj.computeGDotMatrix();
+            GDot = obj.myGDot;
+            
+            % Extract polar moment of inertia matrix and Euler params for
+            % this body.
+            Jbar = obj.myJMatrix;
+            
+            % Compute torqueHat for this body.
+            torqueHatPartialP = 8*GDot'*Jbar*GDot;
+            
+            obj.myTorqueHatPartialP = torqueHatPartialP;
         end
         function obj = addPoint(obj, sBar, pointName)
             % Adds a point to this body. This function is helpful for

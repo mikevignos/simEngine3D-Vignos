@@ -20,6 +20,10 @@ classdef DP1constraint < handle
         myGamma; % Right hand side of the acceleration equation at the current time step
         myPhiPartialR; % Partial derivative of phi w.r.t. the location generalized coordinates (i.e. r)
         myPhiPartialP; % Partial derivative of phi w.r.t. the orientation generalized coordinates (i.e. p)
+        myConstraintForcePartialR; % Partial derivative of this constraint force w.r.t R.
+        myConstraintForcePartialP; % Partial derivative of this constraint force w.r.t P.
+        myConstraintTorquePartialR; % Partial derivative of this constraint torque w.r.t R.
+        myConstraintTorquePartialP; % Partial derivative of this constraint torque w.r.t P.
     end
     
     methods
@@ -413,7 +417,7 @@ classdef DP1constraint < handle
                 aj = Aj*aBarJ;
                 
                 % Compute constTorquePartialP
-                Kmatrix = simEngine3DUtilities.computeKMatrix(aBarI, aj);
+                Kmatrix = simEngine3DUtilities.computeKmatrix(aBarI, aj);
                 constTorquePartialPI = Kmatrix;
                 constTorquePartialP = lambda*constTorquePartialPI;
                 
@@ -427,7 +431,7 @@ classdef DP1constraint < handle
                 ai = Ai*aBarI;
                 
                 % Compute constTorquePartialP
-                Kmatrix = simEngine3DUtilities.computeKMatrix(aBarJ, ai);
+                Kmatrix = simEngine3DUtilities.computeKmatrix(aBarJ, ai);
                 constTorquePartialPJ = Kmatrix;
                 constTorquePartialP = lambda*constTorquePartialPJ;
                 
@@ -451,8 +455,8 @@ classdef DP1constraint < handle
                 aj = Aj*aBarJ;
                 
                 % Compute K matrix for both bodies
-                KmatrixAbarI = simEngine3DUtilities.computeKMatrix(aBarI, aj);
-                KmatrixAbarJ = simEngine3DUtilities.computeKMatrix(aBarJ, ai);
+                KmatrixAbarI = simEngine3DUtilities.computeKmatrix(aBarI, aj);
+                KmatrixAbarJ = simEngine3DUtilities.computeKmatrix(aBarJ, ai);
                 
                 % Compute constTorquePartialP
                 constTorquePartialPI = zeros(8,4);

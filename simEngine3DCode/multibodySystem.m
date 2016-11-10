@@ -23,7 +23,7 @@ classdef multibodySystem < handle
         myPhiP; % Vector of Euler parameter normalization constraints
         myPhiFull; % Full constraint matrix. Made up of combination of kinematic, driving, and Euler parameter normalization constraints.
         myPhiFullJacobian; % Jacobian of full constraint matrix.
-        myPhiPartialR; % Partial derivative of constraint matrix w.r.t. position (not including Euler normalization constraints) 
+        myPhiPartialR; % Partial derivative of constraint matrix w.r.t. position (not including Euler normalization constraints)
         myPhiPartialP; % Partial derivative of constraint matrix w.r.t euler parameters (not including Euler normalization constraints)
         myNu; % RHS of velocity equation for entire multibody system
         myGamma; % RHS of acceleration equation for entire multibody system
@@ -38,9 +38,9 @@ classdef multibodySystem < handle
         myLHSforEOM; % Matrix for the left hand side of the matrix-form of the Newton-Euler equations of motion.
         myRHSforEOM; % Matrix for the right hand side of the matrix-form of the Newton-Euler equations of motion.
         myRTotal; % 3n x M matrix containing the positions throughout a dynamics analysis
-                       % n = Number of bodies (including ground)
-                       % M = Number of time steps
-        myRDotTotal; % 3n x M matrix containing the velocities throughout a dynamics analysis   
+                  % n = Number of bodies (including ground)
+                  % M = Number of time steps
+        myRDotTotal; % 3n x M matrix containing the velocities throughout a dynamics analysis
         myRDDotTotal; % 3n x M matrix containing the accelerations throughout a dynamics analysis
         myPTotal; % 4n x M matrix containing the Euler parameters throughout a dynamics analysis
         myPDotTotal; % 4n x M matrix containing the 1st time derivative of the Euler parameters throughout a dynamics analysis
@@ -51,13 +51,21 @@ classdef multibodySystem < handle
         myIterCount; % Iteration count for current time step.
         myIterCountTotal; % Total number of iterations for all timesteps
         myVelocityConstraintViolationTotal; % nConstraint x nTimeSteps matrix containing the velocity constraint violation for each step of the simulation.
+        myConstraintForcePartialR; % Partial derivative of constraint forces w.r.t r
+        myConstraintForcePartialP; % Partial derivative of constraint forces w.r.t p
+        myConstraintTorquePartialR; % Partial derivative of constraint torques w.r.t r
+        myConstraintTorquePartialP; % Partial derivative of constraint torques w.r.t p
+        myTorqueHatPartialP; % Partial derivative of torqueHat w.r.t p
+        myTorqueHatPartialPDot; % Partial derivative of torqueHat w.r.t pDot       
+        myJpDDotPartialP; % Partial derivative of [Jp*pDDot] w.r.t p for all bodies.
+        myEulerConstraintPartialP; % Partial derivative of [P'*lambdaP] w.r.t. p.
     end
     
     properties (Dependent)
         myNumBodies; % Number of bodies in the system
-        myNumBodiesMinusGround; % Number of bodies in the system, not 
-                                % including the ground. If there is not 
-                                % ground in the system, myNumBodiesMinusGround = myNumBodies.
+        myNumBodiesMinusGround; % Number of bodies in the system, not
+        % including the ground. If there is not
+        % ground in the system, myNumBodiesMinusGround = myNumBodies.
         myNumConstraints; % Number of kinematic and driving constraints in the system
         myNumTimeSteps; % Number of time steps that have been completed in simulation.
         myMassMatrix; % Mass matrix for the entire system.
@@ -92,26 +100,26 @@ classdef multibodySystem < handle
         end
         function obj = addForce(obj, bodyNumber, force, sBar, forceName)
             % Add a force to a body in the multibody system
-            % 
+            %
             % Function inputs:
             % bodyNumber : int
             %   Number of the body that you want to apply the force to.
-            %            
+            %
             % force : 3x1 double
             %   x,y, and z components of force.
             %
             % sBar : 3x1 double
             %   Point of application of the force in the body reference
-            %   frame. If the force is applied to the center of mass 
+            %   frame. If the force is applied to the center of mass
             %   sBar = [0 0 0]'.
             %
             % forceName : string
             %   Name of this force. Optional input.
-            %   
+            %
             sBar = sBar(:);
             force = force(:);
             nForces = obj.myBodies{bodyNumber}.myNumForces;
-
+            
             if vargin < 5
                 forceName = ['Force ' num2str(nForces+1) ' on body ' num2str(bodyNumber) ];
             end
@@ -132,12 +140,12 @@ classdef multibodySystem < handle
             %   Name of this torque. Optional input.
             torque = torque(:);
             nTorques = obj.myBodies{bodyNumber}.myNumTorques;
-
+            
             if vargin < 4
                 torqueName = ['Torque ' num2str(nTorques+1) ' on body ' num2str(bodyNumber) ];
             end
             
-            obj.myBodies{bodyNumber}.addTorque(torque, torqueName);          
+            obj.myBodies{bodyNumber}.addTorque(torque, torqueName);
         end
         function obj = kinematicsAnalysis(obj, startTime, endTime, timeStep, displayFlag)
             % Perform kinematics analysis with this multibody system for
@@ -204,7 +212,7 @@ classdef multibodySystem < handle
             %   Order of the BDF method to be used, as specificed by the user
             %
             % iterationMethod : string
-            %   Method used to compute iteration matrix. 
+            %   Method used to compute iteration matrix.
             %   Options are:
             %   'newtonRaphson'
             %   'modifiedNewton'
@@ -257,7 +265,7 @@ classdef multibodySystem < handle
                     if (obj.myInitCondFlag == 0)
                         disp('Initial conditions do not satisfy constraint equations. Please correct this.');
                         break;
-                    end                  
+                    end
                     
                     % Also for the first iteration, compute qDDot and the
                     % Lagrange multipliers for the initial position and
@@ -265,7 +273,7 @@ classdef multibodySystem < handle
                     obj.solveFirstStepDynamicsAnalysis(t);
                     
                 else
-                    % If this is not the first time step use a BDF method 
+                    % If this is not the first time step use a BDF method
                     % to perform numerical integration and get the
                     % accelerations and lagrange mutlipliers for the first
                     % time step. Within this function we will also compute
@@ -334,7 +342,7 @@ classdef multibodySystem < handle
             end
             
             % Extract the portion of nu that relates to the constraints
-            nuConst = nu(1:obj.myNumConstraints); 
+            nuConst = nu(1:obj.myNumConstraints);
             
             % Check to ensure this constraint is satisfied
             velConstViolation = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
@@ -342,10 +350,10 @@ classdef multibodySystem < handle
         end
         function obj = performNumericalIntegrationDynamicsAnalysis(obj, time, stepsize, order, stepNumber, iterationMethod)
             % For this current time step, use a numerical integration
-            % technique to compute the position, velocity, accelerations, 
+            % technique to compute the position, velocity, accelerations,
             % and Lagrange multipliers.
             %
-            % Function inputs : 
+            % Function inputs :
             % time : double
             %   Time for current timestep
             %
@@ -359,7 +367,7 @@ classdef multibodySystem < handle
             %   Current step number of the dynamics analysis.
             %
             % iterationMethod : string
-            %   Method used to compute iteration matrix. 
+            %   Method used to compute iteration matrix.
             %   Options are:
             %   'newtonRaphson'
             %   'modifiedNewton'
@@ -397,8 +405,8 @@ classdef multibodySystem < handle
                 pDDotGuess;
                 pLambdaGuess;
                 constLambdaGuess];
-                
-
+            
+            
             % Begin numerical integration
             iter = 1;
             while iter < maxIter
@@ -439,7 +447,7 @@ classdef multibodySystem < handle
                     obj.BDFmethodIteration(rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber);
                     obj.computeGMatrix(stepsize,order);
                 end
-
+                
                 % Extract residual in the system (g matrix)
                 gMatrix = obj.myGMatrix;
                 
@@ -485,7 +493,7 @@ classdef multibodySystem < handle
                 
                 % Check for convergence
                 if (norm(correction) < tolerance)
-                    break;  
+                    break;
                 end
                 
                 iter = iter + 1;
@@ -560,7 +568,7 @@ classdef multibodySystem < handle
                 end
                 obj.myConstraintLagrangeMultipliers = constLambdaNew;
                 obj.myEulerParamLagrangeMultipliers = pLambdaNew;
-
+                
                 % Compute the new G matrix
                 obj.computeGMatrix(stepsize, order);
                 Gnew = obj.myGMatrix;
@@ -605,88 +613,158 @@ classdef multibodySystem < handle
             % previously compute when we computed the Gmatrix, so they do
             % not need to be recomputed.
             massMatrix = obj.myMassMatrix;
-            JpMatrix = obj.myJpMatrixTotal;
             Pmatrix = obj.myPMatrix;
             phiPartialR = obj.myPhiPartialR;
             phiPartialP = obj.myPhiPartialP;
-            nB = obj.myNumBodiesMinusGround;
-            nC = obj.myNumConstraints;
+            nBodies = obj.myNumBodiesMinusGround;
+            nConst = obj.myNumConstraints;
             
-            % Compute the partial derivative of the constraint forces w.r.t
-            % r.
-            obj.computePartialDerivativeConstraintForces();
+            % Compute the partial derivative of the constraint forces  and torques w.r.t
+            % r and p
+            obj.computePartialDerivativeConstraintForcesAndTorques();
+            constraintForcePartialR = obj.myConstraintForcePartialR;
+            constraintForcePartialP =  obj.myConstraintForcePartialP;
+            constraintTorquePartialR = obj.myConstraintTorquePartialR;
+            constraintTorquePartialP = obj.myConstraintTorquePartialP;
             
-            % Compute the partial derivative of the constraint forces w.r.t
-            % p.
+            % Set the partial derivative of the externally applied
+            % forces w.r.t r, rDot, p, and pDot to zero.
+            forcePartialR = zeros(3*nBodies, 3*nBodies);
+            forcePartialRDot = zeros(3*nBodies, 3*nBodies);
+            forcePartialP = zeros(3*nBodies, 4*nBodies);
+            forcePartialPDot = zeros(3*nBodies, 4*nBodies);
             
-            % Compute the partial derivative of the constraint torques
-            % w.r.t r.
-            
-            % Compute the partial derivative of the constraint torques
-            % w.r.t p.
-            
-            % Compute the partial derivative of the externally applied
-            % forces to r.
-            
-            % Compute the partial derivative of the externally applied
-            % forces with respect to rDot.
-            
-            % Compute the partial derivative of the externally applied
-            % forces to p.
+            % Set the partial derivative of the externally applied
+            % torques w.r.t r and rDot to zero.
+            tauHatPartialR = zeros(4*nBodies, 3*nBodies);
+            tauHatPartialRDot = zeros(4*nBodies, 3*nBodies);
             
             % Compute the partial derivative of the externally applied
-            % forces with respect to pDot.
+            % torques w.r.t. p
+            obj.computeTorqueHatPartialP();
+            tauHatPartialP = obj.myTorqueHatPartialP;
             
             % Compute the partial derivative of the externally applied
-            % torques to r.
-            
-            % Compute the partial derivative of the externally applied
-            % torques with respect to rDot.
-            
-            % Compute the partial derivative of the externally applied
-            % torques to p.
-            
-            % Compute the partial derivative of the externally applied
-            % torques with respect to pDot.
-            
+            % torques w.r.t. pDot
+            obj.computeTorqueHatPartialPDot();
+            tauHatPartialPDot = obj.myTorqueHatPartialPDot;
+
             % Compute partial derivative of Euler normalization constraint
             % w.r.t p.
+            obj.computeEulerConstraintPartialP();
+            eulerConstPartialP = obj.myEulerConstraintPartialP;
             
             % Compute partial derivative of Jp*pDDot w.r.t p.
+            obj.computeJpDDotPartialP();
+            JpDDotPartialP = obj.myJpDDotPartialP;
+            
+            % Compute JpMatrix
+            obj.computeJpMatrixTotal();
+            JpMatrix = obj.myJpMatrixTotal;
             
             % Compute components of psi
+            psi11 = massMatrix + ...
+                stepsize^2*beta0^2*constraintForcePartialR - ...
+                stepsize^2*beta0^2*forcePartialR - ...
+                stepsize*beta0*forcePartialRDot;
             
+            psi12 = stepsize^2*beta0^2*constraintForcePartialP - ...
+                stepsize^2*beta0^2*forcePartialP - ...
+                stepsize*beta0*forcePartialPDot;
             
+            psi21 = stepsize^2*beta0^2*constraintTorquePartialR - ...
+                stepsize^2*beta0^2*tauHatPartialR - ...
+                stepsize*beta0*tauHatPartialRDot;
             
-            
-            
-            
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            
-            % Extract terms for iteration matrix. All of the terms were
-            % previously compute when we computed the Gmatrix, so they do
-            % not need to be recomputed.
-            massMatrix = obj.myMassMatrix;
-            JpMatrix = obj.myJpMatrixTotal;
-            Pmatrix = obj.myPMatrix;
-            phiPartialR = obj.myPhiPartialR;
-            phiPartialP = obj.myPhiPartialP;
-            nB = obj.myNumBodiesMinusGround;
-            nC = obj.myNumConstraints;
-            
-            % Populate components of psi matrix
-            fatM = [massMatrix, zeros(3*nB,4*nB), zeros(3*nB,nB);
-                zeros(4*nB,3*nB), JpMatrix, Pmatrix';
-                zeros(nB,3*nB), Pmatrix, zeros(nB,nB)];
-            fatC = [phiPartialR, phiPartialP, zeros(nC,nB)];
+            psi22 = JpMatrix + ...
+                stepsize^2*beta0^2*JpDDotPartialP + ...
+                stepsize^2*beta0^2*eulerConstPartialP + ...
+                stepsize^2*beta0^2*constraintTorquePartialP - ...
+                stepsize^2*beta0^2*tauHatPartialP - ...
+                stepsize*beta0*tauHatPartialPDot;
             
             % Matrix Assemble!!!
-            psi = [fatM fatC';
-                fatC zeros(nC,nC)];
-            obj.myPsi = psi;
+            psi = [psi11, psi12, zeros(3*nBodies,nBodies), phiPartialR';
+                psi21, psi22, Pmatrix', phiPartialP';
+                zeros(nBodies,3*nBodies), Pmatrix, zeros(nBodies,nBodies), zeros(nBodies,nConst);
+                phiPartialR, phiPartialP, zeros(nConst,nBodies), zeros(nConst,nConst)];
+            
+            obj.myPsi = psi;         
+        end
+        function obj = computeEulerConstraintPartialP(obj)
+            % Compute partial derivative of [P'*lambdaP] w.r.t. p
+            lambdaP = obj.myEulerParamLagrangeMultipliers;
+            
+            % Seed partial derivative matrix
+            nBodies = obj.myNumBodiesMinusGround;
+            eulerConstPartialP = zeros(4*nBodies,4*nBodies);
+            
+            % Loop through each body and add it to the partial derivative
+            % matrix
+            for iB = 1:nBodies
+                eulerConstPartialP((4*iB - 3):4*iB,(4*iB - 3):4*iB) = lambdaP(iB)*eye(4);                
+            end
+            obj.myEulerConstraintPartialP = eulerConstPartialP;
             
         end
-        function obj = computePartialDerivativeConstraintForces(obj)
+        function obj = computeJpDDotPartialP(obj)
+             % Compute the partial derivative Jp*pDDot w.r.t. p.
+            nBodies = obj.myNumBodiesMinusGround;
+            JpDDotPartialPTotal = zeros(4*nBodies, 4*nBodies);
+            
+            % Loop through all bodies. Compute torqueHatPartial. Add this
+            % torqueHat to the overall vector
+            iT = 1;
+            for iB = 1:obj.myNumBodies
+                if (obj.myBodies{iB}.myIsGround == 0)
+                    obj.myBodies{iB}.computeJpDDotPartialP();
+                    JpDDotPartialP = obj.myBodies{iB}.myJpDDotPartialP;
+                    JpDDotPartialPTotal((4*iT-3):(4*iT),(4*iT-3):(4*iT)) = JpDDotPartialP;
+                    iT = iT + 1;
+                end
+            end
+            obj.myJpDDotPartialP = JpDDotPartialPTotal;
+            
+        end
+        function obj = computeTorqueHatPartialPDot(obj)
+            % Compute the partial derivative of the externally applied
+            % torque w.r.t. p
+            nBodies = obj.myNumBodiesMinusGround;
+            torqueHatPartialPDotTotal = zeros(4*nBodies, 4*nBodies);
+            
+            % Loop through all bodies. Compute torqueHatPartial. Add this
+            % torqueHat to the overall vector
+            iT = 1;
+            for iB = 1:obj.myNumBodies
+                if (obj.myBodies{iB}.myIsGround == 0)
+                    obj.myBodies{iB}.computeTorqueHatPartialPDot();
+                    torqueHatPartialPDot = obj.myBodies{iB}.myTorqueHatPartialPDot;
+                    torqueHatPartialPDotTotal((4*iT-3):(4*iT),(4*iT-3):(4*iT)) = torqueHatPartialPDot;
+                    iT = iT + 1;
+                end
+            end
+            obj.myTorqueHatPartialPDot = torqueHatPartialPDotTotal;
+        end
+        function obj = computeTorqueHatPartialP(obj)
+            % Compute the partial derivative of the externally applied
+            % torque w.r.t. p
+            nBodies = obj.myNumBodiesMinusGround;
+            torqueHatPartialPTotal = zeros(4*nBodies, 4*nBodies);
+            
+            % Loop through all bodies. Compute torqueHatPartial. Add this
+            % torqueHat to the overall vector
+            iT = 1;
+            for iB = 1:obj.myNumBodies
+                if (obj.myBodies{iB}.myIsGround == 0)
+                    obj.myBodies{iB}.computeTorqueHatPartialP();
+                    torqueHatPartialP = obj.myBodies{iB}.myTorqueHatPartialP;
+                    torqueHatPartialPTotal((4*iT-3):(4*iT),(4*iT-3):(4*iT)) = torqueHatPartialP;
+                    iT = iT + 1;
+                end
+            end
+            obj.myTorqueHatPartialP = torqueHatPartialPTotal;
+        end
+        function obj = computePartialDerivativeConstraintForcesAndTorques(obj)
             % Compute the partial derivative of constraint forces and
             % torques w.r.t r and p.
             
@@ -702,48 +780,206 @@ classdef multibodySystem < handle
             % of the reaction forces and torques for this constraint.
             % Place these in the correct location of the overall constraint
             % matrix.
-            for iC = 1:nConst  
-            % Extract the bodies for this constraint
+            for iC = 1:nConst
+                % Extract the bodies for this constraint
                 bodyI = obj.myConstraints{iC}.myBodyI;
                 bodyJ = obj.myConstraints{iC}.myBodyJ;
                 
-                % Compute phiPartialR
+                % Compute partial derivatives of for this constraint
                 time = obj.myTime;
                 constraintForcePartialRFlag = 1;
-                obj.computeConstraintProperties(iC, time, 0, 0, 0, 0, 0, constraintForcePartialRFlag, 0, 0, 0);
+                constraintForcePartialPFlag = 1;
+                constraintTorquePartialRFlag = 1;
+                constraintTorquePartialPFlag = 1;
+                obj.computeConstraintProperties(iC, time, 0, 0, 0, 0, 0, constraintForcePartialRFlag, constraintForcePartialPFlag, constraintTorquePartialRFlag, constraintTorquePartialPFlag);
                 constForcePartialR = obj.myConstraints{iC}.myConstraintForcePartialR;
-%                 phiR = obj.myConstraints{iC}.myPhiPartialR;
+                constForcePartialP = obj.myConstraints{iC}.myConstraintForcePartialP;
+                constTorquePartialR = obj.myConstraints{iC}.myConstraintTorquePartialR;
+                constTorquePartialP = obj.myConstraints{iC}.myConstraintTorquePartialP;
                 
+                % Place partial derivatives into correct section of overall
+                % matrix.
                 % If one of the bodies in the system is the ground adjust
                 % the body numbers accordingly.
                 if (obj.myBodyIsGround == 1)
+                    bodyJnew = bodyJ - 1;
+                    bodyInew = bodyI - 1;
                     if (obj.myBodies{bodyI}.myIsGround == 1)
                         % Only care about bodyJ in this case.
                         % Need to decrease body number by 1 to properly
                         % populate the Jacobian. This only works because I
                         % am forcing the ground to be body 1.
-                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR;
+                        constraintForceRJRJ = constForcePartialR;
+                        constraintForceRJPJ = constForcePartialP;
+                        constraintTorquePJRJ = constTorquePartialR;
+                        constraintTorquePJPJ = constTorquePartialP;
+                        
+                        constForcesTotalPartialR((3*bodyJnew - 2):3*bodyJnew,(3*bodyJnew - 2):3*bodyJnew) = ...
+                            constForcesTotalPartialR((3*bodyJnew - 2):3*bodyJnew,(3*bodyJnew - 2):3*bodyJnew) + constraintForceRJRJ;
+                        
+                        constForcesTotalPartialP((3*bodyJnew - 2):3*bodyJnew,(4*bodyJnew - 3):4*bodyJ) = ...
+                            constForcesTotalPartialP((3*bodyJnew - 2):3*bodyJnew,(4*bodyJnew - 3):4*bodyJnew) + constraintForceRJPJ;
+                        
+                        constTorquesTotalPartialR((4*bodyJnew - 3):4*bodyJnew,(3*bodyJnew - 2):3*bodyJnew) = ...
+                            constTorquesTotalPartialR((4*bodyJnew - 3):4*bodyJnew,(3*bodyJnew - 2):3*bodyJnew) + constraintTorquePJRJ;
+                        
+                        constTorquesTotalPartialP((4*bodyJnew - 3):4*bodyJnew,(4*bodyJnew - 3):4*bodyJnew) = ...
+                            constTorquesTotalPartialP((4*bodyJnew - 3):4*bodyJnew,(4*bodyJnew - 3):4*bodyJnew) + constraintTorquePJPJ;
                         
                     elseif (obj.myBodies{bodyJ}.myIsGround == 1)
                         % Only care about bodyI in this case.
                         % Need to decrease body number by 1 to properly
                         % populate the Jacobian.
-                        phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR;
+                        constraintForceRIRI = constForcePartialR;
+                        constraintForceRIPI = constForcePartialP;
+                        constraintTorquePIRI = constTorquePartialR;
+                        constraintTorquePIPI = constTorquePartialP;
                         
+                        constForcesTotalPartialR((3*bodyInew - 2):3*bodyInew,(3*bodyInew - 2):3*bodyInew) = ...
+                            constForcesTotalPartialR((3*bodyInew - 2):3*bodyInew,(3*bodyInew - 2):3*bodyInew) + constraintForceRIRI;
+                        constForcesTotalPartialP((3*bodyInew - 2):3*bodyInew,(4*bodyInew - 3):4*bodyInew) = ...
+                            constForcesTotalPartialP((3*bodyInew - 2):3*bodyInew,(4*bodyInew - 3):4*bodyInew) + constraintForceRIPI;
+                        constTorquesTotalPartialR((4*bodyInew - 3):4*bodyInew,(3*bodyInew - 2):3*bodyInew) = ...
+                            constTorquesTotalPartialR((4*bodyInew - 3):4*bodyInew,(3*bodyInew - 2):3*bodyInew) + constraintTorquePIRI;
+                        constTorquesTotalPartialP((4*bodyInew - 3):4*bodyInew,(4*bodyInew - 3):4*bodyInew) = ...
+                            constTorquesTotalPartialP((4*bodyInew - 3):4*bodyInew,(4*bodyInew - 3):4*bodyInew) + constraintTorquePIPI;
                     else
                         % Include both bodyI and bodyJ in this case because
                         % neither is the ground, but still decrease body
                         % number by 1.
-                        % Populate the partial derivative w.r.t. position.
-                        phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR(1:3);
-                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR(4:6);                        
+                        constraintForceRIRI = constForcePartialR(1:3,1:3);
+                        constraintForceRIRJ = constForcePartialR(1:3,4:6);
+                        constraintForceRJRI = constForcePartialR(4:6,1:3);
+                        constraintForceRJRJ = constForcePartialR(4:6,4:6);
+                        
+                        constraintForceRIPI = constForcePartialP(1:3,1:4);
+                        constraintForceRIPJ = constForcePartialP(1:3,5:8);
+                        constraintForceRJPI = constForcePartialP(4:6,1:4);
+                        constraintForceRJPJ = constForcePartialP(4:6,5:8);
+                        
+                        constraintTorquePIRI = constTorquePartialR(1:4,1:3);
+                        constraintTorquePIRJ = constTorquePartialR(1:4,4:6);
+                        constraintTorquePJRI = constTorquePartialR(5:8,1:3);
+                        constraintTorquePJRJ = constTorquePartialR(5:8,4:6);
+                        
+                        constraintTorquePIPI = constTorquePartialP(1:4,1:4);
+                        constraintTorquePIPJ = constTorquePartialP(1:4,5:8);
+                        constraintTorquePJPI = constTorquePartialP(5:8,1:4);
+                        constraintTorquePJPJ = constTorquePartialP(5:8,5:8);
+                        
+                        % Place these partial derivatives in the correct
+                        % location of the Jacobian
+                        % Partial derivative of forces w.r.t. r
+                        constForcesTotalPartialR((3*bodyInew - 2):(3*bodyInew),(3*bodyInew - 2):(3*bodyInew)) = ...
+                            constForcesTotalPartialR((3*bodyInew - 2):(3*bodyInew),(3*bodyInew - 2):(3*bodyInew)) + constraintForceRIRI;
+                        constForcesTotalPartialR((3*bodyInew - 2):(3*bodyInew),(3*bodyJnew - 2):(3*bodyJnew)) = ...
+                            constForcesTotalPartialR((3*bodyInew - 2):(3*bodyInew),(3*bodyJnew - 2):(3*bodyJnew)) + constraintForceRIRJ;
+                        constForcesTotalPartialR((3*bodyJnew - 2):(3*bodyJnew),(3*bodyInew - 2):(3*bodyInew)) = ...
+                            constForcesTotalPartialR((3*bodyJnew - 2):(3*bodyJnew),(3*bodyInew - 2):(3*bodyInew)) + constraintForceRJRI;
+                        constForcesTotalPartialR((3*bodyJnew - 2):(3*bodyJnew),(3*bodyJnew - 2):(3*bodyJnew)) = ...
+                            constForcesTotalPartialR((3*bodyJnew - 2):(3*bodyJnew),(3*bodyJnew - 2):(3*bodyJnew)) + constraintForceRJRJ;
+                        
+                        % Partial derivative of forces w.r.t. p
+                        constForcesTotalPartialP((3*bodyInew - 2):(3*bodyInew),(4*bodyInew - 3):(4*bodyInew)) =  ...
+                            constForcesTotalPartialP((3*bodyInew - 2):(3*bodyInew),(4*bodyInew - 3):(4*bodyInew)) + constraintForceRIPI;
+                        constForcesTotalPartialP((3*bodyInew - 2):(3*bodyInew),(4*bodyJnew - 3):(4*bodyJnew)) = ...
+                            constForcesTotalPartialP((3*bodyInew - 2):(3*bodyInew),(4*bodyJnew - 3):(4*bodyJnew)) + constraintForceRIPJ;
+                        constForcesTotalPartialP((3*bodyJnew - 2):(3*bodyJnew),(4*bodyInew - 3):(4*bodyInew)) = ...
+                            constForcesTotalPartialP((3*bodyJnew - 2):(3*bodyJnew),(4*bodyInew - 3):(4*bodyInew)) + constraintForceRJPI;
+                        constForcesTotalPartialP((3*bodyJnew - 2):(3*bodyJnew),(4*bodyJnew - 3):(4*bodyJnew)) = ...
+                            constForcesTotalPartialP((3*bodyJnew - 2):(3*bodyJnew),(4*bodyJnew - 3):(4*bodyJnew)) + constraintForceRJPJ;
+                        
+                        % Partial derivative of torques w.r.t. r
+                        constTorquesTotalPartialR((4*bodyInew - 3):(4*bodyInew),(3*bodyInew - 2):(3*bodyInew)) =  ...
+                            constTorquesTotalPartialR((4*bodyInew - 3):(4*bodyInew),(3*bodyInew - 2):(3*bodyInew)) + constraintTorquePIRI;
+                        constTorquesTotalPartialR((4*bodyInew - 3):(4*bodyInew),(3*bodyJnew - 2):(3*bodyJnew)) = ...
+                            constTorquesTotalPartialR((4*bodyInew - 3):(4*bodyInew),(3*bodyJnew - 2):(3*bodyJnew)) + constraintTorquePIRJ;
+                        constTorquesTotalPartialR((4*bodyJnew - 3):(4*bodyJnew),(3*bodyInew - 2):(3*bodyInew)) = ...
+                            constTorquesTotalPartialR((4*bodyJnew - 3):(4*bodyJnew),(3*bodyInew - 2):(3*bodyInew)) + constraintTorquePJRI;
+                        constTorquesTotalPartialR((4*bodyJnew - 3):(4*bodyJnew),(3*bodyJnew - 2):(3*bodyJnew)) = ...
+                            constTorquesTotalPartialR((4*bodyJnew - 3):(4*bodyJnew),(3*bodyJnew - 2):(3*bodyJnew)) + constraintTorquePJRJ;
+                        
+                        % Partial derivative of torques w.r.t. p
+                        constTorquesTotalPartialP((4*bodyInew - 3):(4*bodyInew),(4*bodyInew - 3):(4*bodyInew)) =  ...
+                            constTorquesTotalPartialP((4*bodyInew - 3):(4*bodyInew),(4*bodyInew - 3):(4*bodyInew)) + constraintTorquePIPI;
+                        constTorquesTotalPartialP((4*bodyInew - 3):(4*bodyInew),(4*bodyJnew - 3):(4*bodyJnew)) =  ...
+                            constTorquesTotalPartialP((4*bodyInew - 3):(4*bodyInew),(4*bodyJnew - 3):(4*bodyJnew)) + constraintTorquePIPJ;
+                        constTorquesTotalPartialP((4*bodyJnew - 3):(4*bodyJnew),(4*bodyInew - 3):(4*bodyInew)) = ...
+                            constTorquesTotalPartialP((4*bodyJnew - 3):(4*bodyJnew),(4*bodyInew - 3):(4*bodyInew)) + constraintTorquePJPI;
+                        constTorquesTotalPartialP((4*bodyJnew - 3):(4*bodyJnew),(4*bodyJnew - 3):(4*bodyJnew)) = ...
+                            constTorquesTotalPartialP((4*bodyJnew - 3):(4*bodyJnew),(4*bodyJnew - 3):(4*bodyJnew)) + constraintTorquePJPJ;
+                        
                     end
                 else
-                    % Populate the partial derivative w.r.t. position.
-                    phiPartialR(iC,(3*bodyI - 2):3*bodyI) = phiR(1:3);
-                    phiPartialR(iC,(3*bodyJ - 2):3*bodyJ) = phiR(4:6);
+                    % Include both bodyI and bodyJ in this case
+                    constraintForceRIRI = constForcePartialR(1:3,1:3);
+                    constraintForceRIRJ = constForcePartialR(1:3,4:6);
+                    constraintForceRJRI = constForcePartialR(4:6,1:3);
+                    constraintForceRJRJ = constForcePartialR(4:6,4:6);
+                    
+                    constraintForceRIPI = constForcePartialP(1:3,1:4);
+                    constraintForceRIPJ = constForcePartialP(1:3,5:8);
+                    constraintForceRJPI = constForcePartialP(4:6,1:4);
+                    constraintForceRJPJ = constForcePartialP(4:6,5:8);
+                    
+                    constraintTorquePIRI = constTorquePartialR(1:4,1:3);
+                    constraintTorquePIRJ = constTorquePartialR(1:4,4:6);
+                    constraintTorquePJRI = constTorquePartialR(5:8,1:3);
+                    constraintTorquePJRJ = constTorquePartialR(5:8,4:6);
+                    
+                    constraintTorquePIPI = constTorquePartialP(1:4,1:4);
+                    constraintTorquePIPJ = constTorquePartialP(1:4,5:8);
+                    constraintTorquePJPI = constTorquePartialP(5:8,1:4);
+                    constraintTorquePJPJ = constTorquePartialP(5:8,5:8);
+                    
+                    % Place these partial derivatives in the correct
+                    % location of the Jacobian
+                    % Partial derivative of forces w.r.t. r
+                    constForcesTotalPartialR((3*bodyI - 2):(3*bodyI),(3*bodyI - 2):(3*bodyI)) = ...
+                        constForcesTotalPartialR((3*bodyI - 2):(3*bodyI),(3*bodyI - 2):(3*bodyI)) + constraintForceRIRI;
+                    constForcesTotalPartialR((3*bodyI - 2):(3*bodyI),(3*bodyJ - 2):(3*bodyJ)) = ...
+                        constForcesTotalPartialR((3*bodyI - 2):(3*bodyI),(3*bodyJ - 2):(3*bodyJ)) + constraintForceRIRJ;
+                    constForcesTotalPartialR((3*bodyJ - 2):(3*bodyJ),(3*bodyI - 2):(3*bodyI)) = ...
+                        constForcesTotalPartialR((3*bodyJ - 2):(3*bodyJ),(3*bodyI - 2):(3*bodyI)) + constraintForceRJRI;
+                    constForcesTotalPartialR((3*bodyJ - 2):(3*bodyJ),(3*bodyJ - 2):(3*bodyJ)) = ...
+                        constForcesTotalPartialR((3*bodyJ - 2):(3*bodyJ),(3*bodyJ - 2):(3*bodyJ)) + constraintForceRJRJ;
+                    
+                    % Partial derivative of forces w.r.t. p
+                    constForcesTotalPartialP((3*bodyI - 2):(3*bodyI),(4*bodyI - 3):(4*bodyI)) =  ...
+                        constForcesTotalPartialP((3*bodyI - 2):(3*bodyI),(4*bodyI - 3):(4*bodyI)) + constraintForceRIPI;
+                    constForcesTotalPartialP((3*bodyI - 2):(3*bodyI),(4*bodyJ - 3):(4*bodyJ)) = ...
+                        constForcesTotalPartialP((3*bodyI - 2):(3*bodyI),(4*bodyJ - 3):(4*bodyJ)) + constraintForceRIPJ;
+                    constForcesTotalPartialP((3*bodyJ - 2):(3*bodyJ),(4*bodyI - 3):(4*bodyI)) = ...
+                        constForcesTotalPartialP((3*bodyJ - 2):(3*bodyJ),(4*bodyI - 3):(4*bodyI)) + constraintForceRJPI;
+                    constForcesTotalPartialP((3*bodyJ - 2):(3*bodyJ),(4*bodyJ - 3):(4*bodyJ)) = ...
+                        constForcesTotalPartialP((3*bodyJ - 2):(3*bodyJ),(4*bodyJ - 3):(4*bodyJ)) + constraintForceRJPJ;
+                    
+                    % Partial derivative of torques w.r.t. r
+                    constTorquesTotalPartialR((4*bodyI - 3):(4*bodyI),(3*bodyI - 2):(3*bodyI)) =  ...
+                        constTorquesTotalPartialR((4*bodyI - 3):(4*bodyI),(3*bodyI - 2):(3*bodyI)) + constraintTorquePIRI;
+                    constTorquesTotalPartialR((4*bodyI - 3):(4*bodyI),(3*bodyJ - 2):(3*bodyJ)) = ...
+                        constTorquesTotalPartialR((4*bodyI - 3):(4*bodyI),(3*bodyJ - 2):(3*bodyJ)) + constraintTorquePIRJ;
+                    constTorquesTotalPartialR((4*bodyJ - 3):(4*bodyJ),(3*bodyI - 2):(3*bodyI)) = ...
+                        constTorquesTotalPartialR((4*bodyJ - 3):(4*bodyJ),(3*bodyI - 2):(3*bodyI)) + constraintTorquePJRI;
+                    constTorquesTotalPartialR((4*bodyJ - 3):(4*bodyJ),(3*bodyJ - 2):(3*bodyJ)) = ...
+                        constTorquesTotalPartialR((4*bodyJ - 3):(4*bodyJ),(3*bodyJ - 2):(3*bodyJ)) + constraintTorquePJRJ;
+                    
+                    % Partial derivative of torques w.r.t. p
+                    constTorquesTotalPartialP((4*bodyI - 3):(4*bodyI),(4*bodyI - 3):(4*bodyI)) =  ...
+                        constTorquesTotalPartialP((4*bodyI - 3):(4*bodyI),(4*bodyI - 3):(4*bodyI)) + constraintTorquePIPI;
+                    constTorquesTotalPartialP((4*bodyI - 3):(4*bodyI),(4*bodyJ - 3):(4*bodyJ)) =  ...
+                        constTorquesTotalPartialP((4*bodyI - 3):(4*bodyI),(4*bodyJ - 3):(4*bodyJ)) + constraintTorquePIPJ;
+                    constTorquesTotalPartialP((4*bodyJ - 3):(4*bodyJ),(4*bodyI - 3):(4*bodyI)) = ...
+                        constTorquesTotalPartialP((4*bodyJ - 3):(4*bodyJ),(4*bodyI - 3):(4*bodyI)) + constraintTorquePJPI;
+                    constTorquesTotalPartialP((4*bodyJ - 3):(4*bodyJ),(4*bodyJ - 3):(4*bodyJ)) = ...
+                        constTorquesTotalPartialP((4*bodyJ - 3):(4*bodyJ),(4*bodyJ - 3):(4*bodyJ)) + constraintTorquePJPJ;
+                    
                 end
             end
+            obj.myConstraintForcePartialR = constForcePartialR;
+            obj.myConstraintForcePartialP = constForcePartialP;
+            obj.myConstraintTorquePartialR = constTorquePartialR;
+            obj.myConstraintTorquePartialP = constTorquePartialP;
         end
         function obj = computeQuasiNewtonPsi(obj)
             % Compute the iteration matrix (psi) for the quasi-newton
@@ -830,7 +1066,7 @@ classdef multibodySystem < handle
             obj.computePhiD();
             phiD = obj.myPhiD;
             
-            phi = [phiK; 
+            phi = [phiK;
                 phiD];
             
             % Compute all terms of Gmatrix
@@ -838,9 +1074,9 @@ classdef multibodySystem < handle
             torqueTerm = JpMatrix*pDDotGuess + phiPartialP'*constLambdaGuess + Pmatrix'*pLambdaGuess - tauHat;
             eulerParamTerm = 1/(beta0^2*stepsize^2)*phiP;
             constraintTerm = 1/(beta0^2*stepsize^2)*phi;
-%             eulerParamTerm = phiP;
-%             constraintTerm = phi;
-
+            %             eulerParamTerm = phiP;
+            %             constraintTerm = phi;
+            
             
             % Matrix Assemble!!!
             gMatrix = [forceTerm;
@@ -848,7 +1084,7 @@ classdef multibodySystem < handle
                 eulerParamTerm;
                 constraintTerm];
             
-            obj.myGMatrix = gMatrix;       
+            obj.myGMatrix = gMatrix;
         end
         function obj = BDFmethodIteration(obj, rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber)
             % Perform one iteration of the BDF method
@@ -860,7 +1096,7 @@ classdef multibodySystem < handle
             %
             % pDDotGuess : 4N x 1 vec, where N is the number of bodies not including the ground.
             %   Vector containing the guess for the second time derivative
-            %   of the Euler parameters of each body in the system, not 
+            %   of the Euler parameters of each body in the system, not
             %   including the ground.
             %
             % order : int
@@ -894,7 +1130,7 @@ classdef multibodySystem < handle
                 
                 % Compute next guess for rDot and pDot.
                 rDotGuess = rDotNminus1 + stepsize*rDDotGuess;
-                pDotGuess = pDotNminus1 + stepsize*pDDotGuess;               
+                pDotGuess = pDotNminus1 + stepsize*pDDotGuess;
                 
                 % Compute next guess for r and p.
                 rGuess = rNminus1 + stepsize*rDotGuess;
@@ -974,7 +1210,7 @@ classdef multibodySystem < handle
             else
                 nBodies = obj.myNumBodies;
             end
-            nConst = obj.myNumConstraints;          
+            nConst = obj.myNumConstraints;
             
             qDDot = solution(1:7*nBodies);
             lagrangeMultsP = solution((7*nBodies + 1):(8*nBodies));
@@ -1123,7 +1359,7 @@ classdef multibodySystem < handle
             end
             
             % Extract the portion of nu that relates to the constraints
-            nuConst = nu(1:obj.myNumConstraints); 
+            nuConst = nu(1:obj.myNumConstraints);
             
             % Check to ensure this constraint is satisfied
             check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
@@ -1146,12 +1382,12 @@ classdef multibodySystem < handle
             else
                 eulerParamVelConstFlag = 1;
             end
-
+            
             % Check to see if any of the flags are zero. If they are, one
             % of the constraints was not satisfied
             if (phiFullFlag == 0) || (eulerParamConstFlag == 0) || (velocityConstFlag == 0) || (eulerParamVelConstFlag == 0)
                 obj.myInitCondFlag = 0;
-            else 
+            else
                 obj.myInitCondFlag = 1;
             end
         end
@@ -1203,46 +1439,46 @@ classdef multibodySystem < handle
                 % multiplier.
                 obj.computeConstraintForces();
                 obj.computeConstraintTorques();
-
+                
                 % Store the current forces and torques for all the
                 % constraints
-                obj.storeConstraintForcesAndTorques(t); 
+                obj.storeConstraintForcesAndTorques(t);
                 
                 if (displayFlag == 1)
                     disp(['Inverse dynamics analysis completed for ' num2str(t) ' sec']);
                 end
             end
-               
+            
             
         end
         function obj = storeConstraintForcesAndTorques(obj,t,iT)
-           % Store forces and torques that were computed for each constraint
-           % at this specific time step. The format of both of this
-           % matrices is 3nc x nTimesteps, where every three rows
-           % represents the forces or torques for a different constraint
-           % and each column is a different timestep.
-           nTimeSteps = obj.myNumTimeSteps;
-           nConst = obj.myNumConstraints;
-           nBodies = obj.myNumBodies;
-           
-           % Store time
-           obj.myTimeTotal(1,iT) = t;
-           
-           % For each body, store the force and torque for this specific
-           % time step.
-           for iB = 1:nBodies
-               force = obj.myBodies{iB}.myConstraintForces;
-               torque = obj.myBodies{iB}.myConstraintTorques;
-               torqueOmega = obj.myBodies{iB}.myConstraintTorquesOmega;
-               forceVec = reshape(force,[3*nConst,1]);
-               torqueVec = reshape(torque,[4*nConst,1]);
-               torqueOmegaVec = reshape(torqueOmega,[3*nConst,1]);
-               
-               % Store forces and torques
-               obj.myBodies{iB}.myConstraintForcesTotal(:,iT) = forceVec;
-               obj.myBodies{iB}.myConstraintTorquesTotal(:,iT) = torqueVec;
-               obj.myBodies{iB}.myConstraintTorquesOmegaTotal(:,iT) = torqueOmegaVec;
-           end
+            % Store forces and torques that were computed for each constraint
+            % at this specific time step. The format of both of this
+            % matrices is 3nc x nTimesteps, where every three rows
+            % represents the forces or torques for a different constraint
+            % and each column is a different timestep.
+            nTimeSteps = obj.myNumTimeSteps;
+            nConst = obj.myNumConstraints;
+            nBodies = obj.myNumBodies;
+            
+            % Store time
+            obj.myTimeTotal(1,iT) = t;
+            
+            % For each body, store the force and torque for this specific
+            % time step.
+            for iB = 1:nBodies
+                force = obj.myBodies{iB}.myConstraintForces;
+                torque = obj.myBodies{iB}.myConstraintTorques;
+                torqueOmega = obj.myBodies{iB}.myConstraintTorquesOmega;
+                forceVec = reshape(force,[3*nConst,1]);
+                torqueVec = reshape(torque,[4*nConst,1]);
+                torqueOmegaVec = reshape(torqueOmega,[3*nConst,1]);
+                
+                % Store forces and torques
+                obj.myBodies{iB}.myConstraintForcesTotal(:,iT) = forceVec;
+                obj.myBodies{iB}.myConstraintTorquesTotal(:,iT) = torqueVec;
+                obj.myBodies{iB}.myConstraintTorquesOmegaTotal(:,iT) = torqueOmegaVec;
+            end
         end
         function obj = computeConstraintForces(obj)
             % Compute the forces induced by each constraint.
@@ -1285,7 +1521,7 @@ classdef multibodySystem < handle
             % Compute phiPartial P for the final values of P.
             obj.computePhiPartialP();
             phiPartialP = obj.myPhiPartialP;
-
+            
             % Seed the constraint forces for all bodies
             for iB = 1:nBodies
                 obj.myBodies{iB}.myConstraintTorques = zeros(4,nConst);
@@ -1313,7 +1549,7 @@ classdef multibodySystem < handle
             for iB = 1:nBodies
                 obj.myBodies{iB}.convertConstraintTorques();
             end
-        end            
+        end
         function obj = computeLagrangeMultipliers(obj)
             % Compute the Lagrange multipliers that will be used for
             % computing the reaction force and torques
@@ -1325,8 +1561,8 @@ classdef multibodySystem < handle
             % Compute the constraint partial derivative matrix. The matrix
             % is the A matrix in solving Ax = b.
             obj.computeInvDynMatrix();
-            invDynMatrix = obj.myInvDynMatrix();          
-        
+            invDynMatrix = obj.myInvDynMatrix();
+            
             
             % Compute Lagrange multipliers
             lagrangeMultipliers = invDynMatrix\invDynRHS;
@@ -1349,7 +1585,7 @@ classdef multibodySystem < handle
             % displacements.
             obj.computePhiPartialR();
             phiPartialR = obj.myPhiPartialR;
-
+            
             % Compute partial derivative of the constraint matrix w.r.t.
             % orientation.
             obj.computePhiPartialP();
@@ -1412,7 +1648,7 @@ classdef multibodySystem < handle
                 phiPartialR = zeros(nKDconst, 3*nBodies);
             end
             
-           % Loop through each kinematic and driving constraint. Compute
+            % Loop through each kinematic and driving constraint. Compute
             % phiPartialR for each. Insert these the
             % correct location in the Jacobian. This location depends on
             % which bodies are involved in the constraint. If one of the
@@ -1451,7 +1687,7 @@ classdef multibodySystem < handle
                         % number by 1.
                         % Populate the partial derivative w.r.t. position.
                         phiPartialR(iC,(3*(bodyI-1) - 2):3*(bodyI-1)) = phiR(1:3);
-                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR(4:6);                        
+                        phiPartialR(iC,(3*(bodyJ-1) - 2):3*(bodyJ-1)) = phiR(4:6);
                     end
                 else
                     % Populate the partial derivative w.r.t. position.
@@ -1460,7 +1696,7 @@ classdef multibodySystem < handle
                 end
             end
             obj.myPhiPartialR = phiPartialR;
-           
+            
         end
         function obj = computePhiPartialP(obj)
             % Compute partial derivative of the constraint matrix w.r.t
@@ -1477,7 +1713,7 @@ classdef multibodySystem < handle
                 phiPartialP = zeros(nKDconst, 4*nBodies);
             end
             
-           % Loop through each kinematic and driving constraint. Compute
+            % Loop through each kinematic and driving constraint. Compute
             % phiPartialR for each. Insert these the
             % correct location in the Jacobian. This location depends on
             % which bodies are involved in the constraint. If one of the
@@ -1516,7 +1752,7 @@ classdef multibodySystem < handle
                         % number by 1.
                         % Populate the partial derivative w.r.t. position.
                         phiPartialP(iC,(4*(bodyI-1) - 3):4*(bodyI-1)) = phiP(1:4);
-                        phiPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiP(5:8);                        
+                        phiPartialP(iC,(4*(bodyJ-1) - 3):4*(bodyJ-1)) = phiP(5:8);
                     end
                 else
                     % Populate the partial derivative w.r.t. position.
@@ -1545,7 +1781,7 @@ classdef multibodySystem < handle
             % Obtain mass matrix
             massMatrix = obj.myMassMatrix;
             
-            % Obtain vector of acceleration and second time derivative of 
+            % Obtain vector of acceleration and second time derivative of
             % Euler params for all bodies
             rDDot = obj.myRDDot;
             pDDot = obj.myPDDot;
@@ -1572,9 +1808,9 @@ classdef multibodySystem < handle
             
             % Assemble RHS vector.
             invDynRHS = -1*[forceTerms;
-                            torqueTerms];
-                        
-            obj.myInvDynRHS = invDynRHS;           
+                torqueTerms];
+            
+            obj.myInvDynRHS = invDynRHS;
         end
         function obj = computeTorqueHatVector(obj)
             % Compute torqueHat for all bodies in the system and assemble
@@ -1595,7 +1831,7 @@ classdef multibodySystem < handle
                 if (obj.myBodies{iB}.myIsGround == 0)
                     obj.myBodies{iB}.computeTorqueHat();
                     torqueHat = obj.myBodies{iB}.myTorqueHat;
-                    torqueHatVector((4*iT-3):(4*iT),1) = torqueHat;                    
+                    torqueHatVector((4*iT-3):(4*iT),1) = torqueHat;
                     iT = iT + 1;
                 end
             end
@@ -1617,7 +1853,7 @@ classdef multibodySystem < handle
             iF = 1;
             for iB = 1:obj.myNumBodies
                 if (obj.myBodies{iB}.myIsGround == 0)
-                    forceVector((3*iF-2:3*iF),1) = obj.myBodies{iB}.myTotalForce; 
+                    forceVector((3*iF-2:3*iF),1) = obj.myBodies{iB}.myTotalForce;
                     iF = iF + 1;
                 end
             end
@@ -1643,7 +1879,7 @@ classdef multibodySystem < handle
                     JpMatrix = obj.myBodies{iB}.myJpMatrix;
                     JpMatrixTotal((4*iC-3):4*iC,(4*iC-3):4*iC) = JpMatrix;
                     iC = iC + 1;
-                end                
+                end
             end
             obj.myJpMatrixTotal = JpMatrixTotal;
         end
@@ -1651,7 +1887,7 @@ classdef multibodySystem < handle
             % Store the current state of each body
             % Function inputs:
             %   stepNumber : int
-            % Current step number of the analysis 
+            % Current step number of the analysis
             
             % Extract vectors that contain the state info for all bodies.
             rVec = obj.myR;
@@ -1723,7 +1959,7 @@ classdef multibodySystem < handle
                 rNew = q(1:3*nBodies);
                 pNew = q((3*nBodies + 1):7*nBodies);
             end
-
+            
             % Update the position.
             obj.updateSystemState(rNew, [], [], pNew, [], [], obj.myTime);
             
@@ -1756,7 +1992,7 @@ classdef multibodySystem < handle
                 rInitVec = rInit;
                 pInitVec = pInit;
             end
-
+            
             qGuess = [rInitVec; pInitVec];
             
             
@@ -2556,7 +2792,7 @@ classdef multibodySystem < handle
             % Each time a new body is added to the system, update the polar
             % moment of inertia matrx.
             
-                        % Seed the J matrix. Loop through each body and place the
+            % Seed the J matrix. Loop through each body and place the
             % J matrix of each body in the total J matrix, unless the
             % body is the ground. Then it contributes nothing to the J
             % matrix.

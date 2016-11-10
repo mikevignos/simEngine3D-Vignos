@@ -156,11 +156,12 @@ classdef simEngine3DUtilities
             bTilde = simEngine3DUtilities.skewSym(b);
             aBarTilde = simEngine3DUtilities.skewSym(aBar);
             
-            K = zeros(4,4);
-            K(1,1) = aBar'*b;
-            K(1,2) = aBar'*bTilde;
-            K(2,1) = aBarTilde*b;
-            K(2,2) = aBar*b' + b*aBar' - aBar'*b*[1 0 0; 0 1 0; 0 0 1];
+            K1 = aBar'*b;
+            K2 = aBar'*bTilde;
+            K3 = aBarTilde*b;
+            K4 = aBar*b' + b*aBar' - aBar'*b*[1 0 0; 0 1 0; 0 0 1];
+            K = [K1 K2;
+                K3 K4];
             
             Kmatrix = 2*K;
         end

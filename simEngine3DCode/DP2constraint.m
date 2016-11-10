@@ -14,13 +14,17 @@ classdef DP2constraint < handle
         myFtDot; % Function representing first time derivative of f(t)
         myFtDDot; % Function representing second time derivative of f(t)
         myTime; % Value of current time step
-       
+        
         % Properties of constraint that can be computed
         myPhi; % Value of the expression of the constraint at current time step
         myNu; % Right hand side of the velocity equation at current time step
         myGamma; % Right hand side of the acceleration equation at the current time step
         myPhiPartialR; % Partial derivative of phi w.r.t. the location generalized coordinates (i.e. r)
         myPhiPartialP; % Partial derivative of phi w.r.t. the orientation generalized coordinates (i.e. p)
+        myConstraintForcePartialR; % Partial derivative of this constraint force w.r.t R.
+        myConstraintForcePartialP; % Partial derivative of this constraint force w.r.t P.
+        myConstraintTorquePartialR; % Partial derivative of this constraint torque w.r.t R.
+        myConstraintTorquePartialP; % Partial derivative of this constraint torque w.r.t P.
     end
     
     methods

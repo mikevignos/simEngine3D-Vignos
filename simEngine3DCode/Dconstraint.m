@@ -20,6 +20,10 @@ classdef Dconstraint < handle
         myGamma; % Right hand side of the acceleration equation at the current time step
         myPhiPartialR; % Partial derivative of phi w.r.t. the location generalized coordinates (i.e. r)
         myPhiPartialP; % Partial derivative of phi w.r.t. the orientation generalized coordinates (i.e. p)
+        myConstraintForcePartialR; % Partial derivative of this constraint force w.r.t R.
+        myConstraintForcePartialP; % Partial derivative of this constraint force w.r.t P.
+        myConstraintTorquePartialR; % Partial derivative of this constraint torque w.r.t R.
+        myConstraintTorquePartialP; % Partial derivative of this constraint torque w.r.t P.
     end
     
     methods
@@ -401,7 +405,6 @@ classdef Dconstraint < handle
             
             obj.myConstraintTorquePartialR = constTorquePartialR;          
         end
-        %%%%%%%%%%%STOPPED HERE!!!!!%%%%%%%%%%%%%%%%
         function     obj = computeConstraintTorquePartialP(obj, sys, constraintNumber)
             % Compute the partial derivative of the torques due to this
             % constraint, w.r.t orientation (p)
@@ -415,7 +418,6 @@ classdef Dconstraint < handle
             bodyJ = obj.myBodyJ;
             sBarIP = obj.mysBarIP;
             sBarJQ = obj.mysBarJQ;
-            aBarI = obj.myaBarI;
             
             % Compute distance vector between the points
             dij = computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
@@ -426,86 +428,59 @@ classdef Dconstraint < handle
             
             % If bodyJ is the ground, this body contributes
             % nothing to the Jacobian
-            if (isGroundJ == 1);
-                % Compute distance vector between the two points, dij
-                dij = simEngine3DUtilities.computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+            if (isGroundJ == 1)
+                % Compute K matrix
+                K_sBarIP_dij = simEngine3DUtilities.computeKMatrix(sBarIP,dij);
                 
-                % Compute orientation matrix, A, for bodyI
-                sys.myBodies{bodyI}.computeA();
-                Ai = sys.myBodies{bodyI}.myA;
-                               
-                % Compute a for bodyJ
-                ai = Ai*aBarI;
-                
-                % Compute the two K matrices that are needed.
-                K_aBarI_dij = simEngine3DUtilities.computeKMatrix(aBarI, dij);
-                K_sBarIP_ai = simEngine3DUtilities.computeKMatrix(sBarIP, ai);
-                
-                % Compute B matrices that are needed.
-                sys.myBodies{bodyI}.computeB(aBarI);
-                BmatrixAbarI = sys.myBodies{bodyI}.myB;
-                
+                % Compute B matrix
                 sys.myBodies{bodyI}.computeB(sBarIP);
-                BmatrixSbarIP = sys.myBodies{bodyI}.myB;
+                BmatrixI = sys.myBodies{bodyI}.myB;
                 
-                % Compute the X term
-                constTorquePartialPI = K_aBarI_dij - K_sBarIP_ai - BmatrixAbarI'*BmatrixSbarIP - BmatrixSbarIP'*BmatrixAbarI;
+                % Compute constTorquePartialPI
+                constTorquePartialPI = -K_sBarIP_dij + BmatrixI'*BmatrixI;
 
                 constTorquePartialP = 2*lambda*constTorquePartialPI;
                 
                 % Special case when body I is ground
-            elseif (isGroundI == 1);
-                % Compute orientation matrix, A, for bodyI
-                sys.myBodies{bodyI}.computeA();
-                Ai = sys.myBodies{bodyI}.myA;
-                               
-                % Compute a for bodyJ
-                ai = Ai*aBarI;
+            elseif (isGroundI == 1)
+                % Compute K matrix
+                K_sBarJQ_dij = simEngine3DUtilities.computeKMatrix(sBarJQ,dij);
                 
-                % Compute the K matrix that is needed.
-                K_sBarJQ_ai = simEngine3DUtilities.computeKMatrix(sBarJQ, ai);
+                % Compute B matrix
+                sys.myBodies{bodyJ}.computeB(sBarJQ);
+                BmatrixJ = sys.myBodies{bodyJ}.myB;
                 
-                % Compute constTorquePartialP
-                constTorquePartialPJ = K_sBarJQ_ai;
+                % Compute constTorquePartialPJ
+                constTorquePartialPJ = K_sBarJQ_dij + BmatrixJ'*BmatrixJ;
+                
                 constTorquePartialP = 2*lambda*constTorquePartialPJ;
                 
             else
-                % Compute distance vector between the two points, dij
-                dij = simEngine3DUtilities.computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+                % Compute K matrices
+                K_sBarIP_dij = simEngine3DUtilities.computeKMatrix(sBarIP,dij);
+                K_sBarJQ_dij = simEngine3DUtilities.computeKMatrix(sBarJQ,dij);
                 
-                % Compute orientation matrix, A, for bodyI
-                sys.myBodies{bodyI}.computeA();
-                Ai = sys.myBodies{bodyI}.myA;
-                               
-                % Compute a for bodyJ
-                ai = Ai*aBarI;
-                
-                % Compute three two K matrices that are needed.
-                K_aBarI_dij = simEngine3DUtilities.computeKMatrix(aBarI, dij);
-                K_sBarIP_ai = simEngine3DUtilities.computeKMatrix(sBarIP, ai);
-                K_sBarJQ_ai = simEngine3DUtilities.computeKMatrix(sBarJQ, ai);
-                
-                % Compute B matrices that are needed.
-                sys.myBodies{bodyI}.computeB(aBarI);
-                BmatrixAbarI = sys.myBodies{bodyI}.myB;
-                
+                % Compute B matrices
                 sys.myBodies{bodyI}.computeB(sBarIP);
-                BmatrixSbarIP = sys.myBodies{bodyI}.myB;
+                BmatrixI = sys.myBodies{bodyI}.myB;
                 
                 sys.myBodies{bodyJ}.computeB(sBarJQ);
-                BmatrixSbarJQ = sys.myBodies{bodyI}.myB;
-                
+                BmatrixJ = sys.myBodies{bodyJ}.myB;
+
                 % Compute the X term
-                Xterm = K_aBarI_dij - K_sBarIP_ai - BmatrixAbarI'*BmatrixSbarIP - BmatrixSbarIP'*BmatrixAbarI;
+                Xterm = -K_sBarIP_dij + BmatrixI'*BmatrixI;
+                
+                % Compute the Y term
+                Yterm = K_sBarJQ_dij + BmatrixJ'*BmatrixJ;
 
                 % Compute constTorquePartialP
                 constTorquePartialPI = zeros(8,4);
                 constTorquePartialPI(1:4,:) = Xterm;
-                constTorquePartialPI(5:8,:) = BmatrixSbarJQ'*BmatrixAbarI;
+                constTorquePartialPI(5:8,:) = -BmatrixJ'*BmatrixI;
                 
                 constTorquePartialPJ = zeros(8,4);
-                constTorquePartialPJ(1:4,:) = BmatrixAbarI'*BmatrixSbarJQ;
-                constTorquePartialPJ(5:8,:) = K_sBarJQ_ai;
+                constTorquePartialPJ(1:4,:) = -BmatrixI'*BmatrixJ;
+                constTorquePartialPJ(5:8,:) = Yterm;
                 
                 constTorquePartialP = 2*lambda*[constTorquePartialPI constTorquePartialPJ];
             end
