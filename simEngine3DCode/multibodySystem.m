@@ -2573,6 +2573,217 @@ classdef multibodySystem < handle
                 obj.myBodies{iB}.updateBody(p, pDot, pDDot, r, rDot, rDDot, time);
             end
         end
+        function obj = addJoint(obj,jointType,attributes)
+            % Add a specific type of joint to the system. Current options
+            % are spherical, cylindrical, translational, revolute, and
+            % universal.
+            
+            % All of these joints are kinematic constraints. None are
+            % driving constraints.
+            %
+            % Function inputs:
+            % jointType : int
+            %   Type of joint. Possible options 'spherical', 'cylindrical',
+            %   'translational', 'revolute', or 'universal'.
+            %
+            % attributes : struct
+            %   Structure containing all of the necessary attributes for
+            %   your desired joint. This function will check to make
+            %   sure all necessary attributes are provided.
+            switch jointType
+                case 'spherical'
+                    obj.createSphericalJoint(attributes);
+                case 'cylindrical'
+                    obj.createCylindricalJoint(attributes);
+                    
+                    
+                case 'translational'
+                    obj.createTranslationalJoint(attributes);
+                case 'revolute'
+                    obj.createRevoluteJoint(attributes);
+                case 'universal'
+                    obj.createUniversalJoint(attributes);
+            end
+            
+        end
+        function obj = createSphericalJoint(obj,attributes)
+            % Create a spherical joint in  this system.
+            % 
+            % Function inputs:
+            % attributes : structure
+            %   Structure containing the necessary attributes for a
+            %   spherical joint.
+            %   body1 = first body in joint
+            %   body2 = second body in joint
+            %   pointOnBody1 = 3D location of the spherical joint on body1
+            %   pointOnBody2 = 3D location of the spherical joint on body2
+            
+            necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} {'pointOnBody2'}];
+            
+            % Check to make sure attributes are provided.
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'constraintName')
+                disp('constraintName not provided. Setting to default');
+                attributes.constraintName = [constraintType ' constraint'];
+            end
+            
+            % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+            % constraint.
+            ft = 0;
+            ftDot = 0;
+            ftDDot = 0;
+            
+            % Define the attributes needed for the 3 CD constraints
+            % that define a spherical joint.
+            a = attributes;
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            sBarIP = a.pointOnBody1;
+            sBarJQ = a.pointOnBody2;
+            cVec1 = [1 0 0]';
+            cVec2 = [0 1 0]';
+            cVec3 = [0 0 1]';
+            
+            % Create the 3 CD constraints for the spherical joint
+            newConstraint1 = CDconstraint(bodyI, bodyJ, cVec1, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint2 = CDconstraint(bodyI, bodyJ, cVec2, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint3 = CDconstraint(bodyI, bodyJ, cVec3, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            
+            
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = 1;
+            newConstraint2.myIsKinematic = 1;
+            newConstraint3.myIsKinematic = 1;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if isempty(obj.myNumKinematicConstraints)
+                obj.myNumKinematicConstraints = 0;
+            end
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 3;
+            
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with the new constraints
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            obj.myConstraints{nConst + 3} = newConstraint3;
+        end
+        function obj = addIntermediateConstraint(obj,isKinematic,constraintType,attributes)
+            % Add an intermediate constraint to the multibody system. When
+            % an intermediate constraint is added it basically creates a
+            % number of basic constraints.
+            %
+            % Function inputs:
+            % isKinematic : int
+            %   Flag to determine if this is a kinematic or driving
+            %   constraint. 1 if constraint is kinematic. 0 if constraint
+            %   is driving
+            %
+            % constraintType : int
+            %   Type of intermediate constraint. Possible options 'b1' or
+            %   'b2'
+            %
+            % attributes : struct
+            %   Structure containing all of the necessary attributes for
+            %   your desired constraint. This function will check to make
+            %   sure all necessary attributes are provided.
+            
+            switch constraintType
+                case 'b1'
+                    % Check to make sure all necessary attributes have been
+                    % provided
+                    necessaryAttributes = [{'bodyI'} {'bodyJ'} {'aBarI'}  {'bBarI'} {'cBarJ'}];
+                    
+                    for iA = 1:length(necessaryAttributes)
+                        if ~isfield(attributes,necessaryAttributes{iA})
+                            error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                        end
+                    end
+                    
+                    % Tell user constraint name is optional if it is not
+                    % provided
+                    if ~isfield(attributes,'constraintName')
+                        disp('constraintName not provided. Setting to default');
+                        attributes.constraintName = [constraintType ' constraint'];
+                    end
+              
+                    % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+                    % constraint.
+                    ft = 0;
+                    ftDot = 0;
+                    ftDDot = 0;
+                    
+                    % Add the first DP1 constraint between two bodies in the system
+                    a = attributes;
+                    newConstraint1 = DP1constraint(a.bodyI, a.bodyJ, a.aBarI, a.cBarJ, ft, ftDot, ftDDot, a.constraintName);
+                    newConstraint2 = DP1constraint(a.bodyI, a.bodyJ, a.bBarI, a.cBarJ, ft, ftDot, ftDDot, a.constraintName);
+                    
+                case 'b2'
+                    % Check to make sure all necessary attributes have been
+                    % provided
+                    necessaryAttributes = [{'bodyI'} {'bodyJ'} {'aBarI'}  {'bBarI'} {'sBarIP'} {'sBarJQ'}];
+                    
+                    for iA = 1:length(necessaryAttributes)
+                        if ~isfield(attributes,necessaryAttributes{iA})
+                            error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                        end
+                    end
+                    
+                    % Tell user constraint name is optional if it is not
+                    % provided
+                    if ~isfield(attributes,'constraintName')
+                        disp('constraintName not provided. Setting to default');
+                        attributes.constraintName = [constraintType ' constraint'];
+                    end
+              
+                    % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+                    % constraint.
+                    ft = 0;
+                    ftDot = 0;
+                    ftDDot = 0;
+                    
+                    % Add the first DP1 constraint between two bodies in the system
+                    a = attributes;
+                    newConstraint1 = DP2constraint(a.bodyI, a.bodyJ, a.aBarI, a.sBarIP, a.sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+                    newConstraint2 = DP2constraint(a.bodyI, a.bodyJ, a.bBarI, a.sBarIP, a.sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            end
+            
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = isKinematic;
+            newConstraint2.myIsKinematic = isKinematic;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if (isKinematic)
+                if isempty(obj.myNumKinematicConstraints)
+                    obj.myNumKinematicConstraints = 0;
+                end
+                obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 2;
+            else
+                if isempty(obj.myNumDrivingConstraints)
+                    obj.myNumDrivingConstraints = 0;
+                end
+                obj.myNumDrivingConstraints = obj.myNumDrivingConstraints + 2;
+            end
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with both new constraint
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            
+        end
         function obj = addBasicConstraint(obj,isKinematic,constraintType,attributes)
             % Add a constraint to the multibody system
             %
