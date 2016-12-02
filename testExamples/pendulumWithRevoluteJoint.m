@@ -1,4 +1,4 @@
-%% testRevoluteJoint.m
+%% pendulumWithRevoluteJoint.m
 % File for dynamic simulation of simple pendulum.
 clear; close all; clc;
 
@@ -101,7 +101,8 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    %     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     dynamicsAnalysisTime = toc;
     save('testRevoluteJoint.mat','sys');
 else
@@ -110,7 +111,7 @@ end
 
 disp(['Dynamics Analysis for A8P1 took ' num2str(dynamicsAnalysisTime) ' seconds.'])
 
-%% Display torque at the revolute joint 
+%% Display torque at the revolute joint
 % Extract torque for body 2 due to all constraints and time
 torque = sys.myBodies{2}.myConstraintTorquesOmegaTotal;
 time = sys.myBodies{2}.myTimeTotal;

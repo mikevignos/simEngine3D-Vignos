@@ -1391,6 +1391,105 @@ classdef multibodySystem < handle
                 obj.myInitCondFlag = 1;
             end
         end
+        function obj = assemblyAnalysis(obj)
+            % Perform an assembly analysis before performing any other
+            % sort of analysis (e.g. kinematics, inverse dynamics, or
+            % dynamics)
+            
+            % Set parameters
+            rVal = 1;
+            maxIter = 50;
+            opt = optimoptions('fminunc');
+            opt.GradObj = 'on';
+            tol = 10^-6;
+            
+            % Extract initial values
+            if (obj.myBodyIsGround == 1)
+                r0 = obj.myR(4:end);
+                p0 = obj.myP(5:end);
+            else
+                r0 = obj.myR;
+                p0 = obj.myP;
+            end
+            q0 = [r0; p0];
+            
+            
+            iter = 1;
+            while iter <= maxIter
+                % Use fminunc to minimize psi
+                [qMin, fMin, exitflag, output] = fminunc(@(q)obj.computeAssemblyAnalysisPsi(q,q0,rVal), q0, opt);
+                
+                % Check to see if this new value of q has converged
+                deltaQ = qMin - q0;
+                if (norm(deltaQ) < tol)
+                    break;
+                end
+                
+                % If q has not converged, increment r and continue the
+                % process.
+                q0 = qMin;
+                rVal = rVal*2;
+
+                iter = iter + 1;
+            end
+            
+            % Update the system state with these final values of r and p.
+            nBodies = obj.myNumBodiesMinusGround;
+            if (obj.myBodyIsGround == 1)
+                rTemp = qMin(1:3*nBodies);
+                pTemp = qMin((3*nBodies+1):(7*nBodies));
+                
+                rFinal = [0; 0; 0; rTemp];
+                pFinal = [1; 0; 0; 0; pTemp];
+            else
+                rFinal = qMin(1:3*nBodies);
+                pFinal = qMin((3*nBodies+1):(7*nBodies));
+            end
+            
+            t = 0; % Because assembly analysis is only performed at t = 0.
+            obj.updateSystemState(rFinal, [], [], pFinal, [], [], t);            
+        end
+        function [psi, psiPartialQ] = computeAssemblyAnalysisPsi(obj, q, q0, r)
+            % Compute the value of psi and the partial derivative of psi
+            % w.r.t. q for the assembly analysis.
+            %
+            % Function inputs:
+            % q : 7*nBodies x 1 vector
+            %   Current guess for the value of q that minimizes psi.
+            %
+            % q0 : 7*nBodies x 1 vector
+            %   Initial guess for the value of q.
+            %
+            % r : double
+            %   Current value of r used in computing psi and psiPartialQ.
+            
+            % Set the system values to the current guess of q. 
+            nBodies = obj.myNumBodiesMinusGround;
+            if (obj.myBodyIsGround == 1)
+                rTemp = q(1:3*nBodies);
+                pTemp = q((3*nBodies+1):(7*nBodies));
+                
+                rGuess = [0; 0; 0; rTemp];
+                pGuess = [1; 0; 0; 0; pTemp];
+            else
+                rGuess = q(1:3*nBodies);
+                pGuess = q((3*nBodies+1):(7*nBodies));
+            end
+            
+            t = 0; % Assembly analysis is only run at t = 0;
+            obj.updateSystemState(rGuess, [], [], pGuess, [], [], t);
+            
+            % Compute the components of psi and psiPartialQ
+            obj.computePhiFull();
+            phiFull = obj.myPhiFull();
+            
+            obj.computePhiFullJacobian();
+            phiFullJacobian = obj.myPhiFullJacobian();
+            
+            % Compute psi and psiPartialQ.
+            psi = (q - q0)'*(q - q0) + r*(phiFull'*phiFull);
+            psiPartialQ = 2*(q - q0)' + 2*r*phiFull'*phiFullJacobian;           
+        end
         function obj = inverseDynamicsAnalysis(obj, startTime, endTime, timestep, displayFlag)
             % Perform an inverse dynamics analysis.
             %
@@ -1407,6 +1506,18 @@ classdef multibodySystem < handle
             % displayFlag : int
             %   Flag for user to indicate if they want to display when each
             %   time step of analysis has been completed.
+            
+            % Check to make sure this is a fully constrained system
+            nConstTotal = obj.myNumConstraints + obj.myNumBodiesMinusGround;
+            if (nConstTotal < 7*obj.myNumBodiesMinusGround)
+                error('System not fully constrained. Cannot perform inverse dynamics analysis')
+            elseif (nConstTotal > 7*obj.myNumBodiesMinusGround)
+                error('System over-constrained. Cannot perform inverse dynamics analysis')
+            end
+            
+            % Perform an assembly analysis before beginning the inverse
+            % dynamics analysis.
+            obj.assemblyAnalysis();
             
             time = startTime:timestep:endTime;
             
@@ -1442,7 +1553,7 @@ classdef multibodySystem < handle
                 
                 % Store the current forces and torques for all the
                 % constraints
-                obj.storeConstraintForcesAndTorques(t);
+                obj.storeConstraintForcesAndTorques(t,iT);
                 
                 if (displayFlag == 1)
                     disp(['Inverse dynamics analysis completed for ' num2str(t) ' sec']);
@@ -2601,7 +2712,95 @@ classdef multibodySystem < handle
                     obj.createRevoluteJoint(attributes);
                 case 'universal'
                     obj.createUniversalJoint(attributes);
+                case 'revolute-cylindrical'
+                    obj.createRevoluteCylindricalJoint(attributes);
             end
+        end
+        function obj = createRevoluteCylindricalJoint(obj,attributes)
+            % Create a revolute-cylindrical composite joint in this system.
+            %
+            % Function inputs:
+            % attributes : structure
+            %   Structure containing the necessary attributes for a
+            %   translational joint.
+            %   body1 = first body in joint. This is the body directly
+            %   connected to the revolute joint.
+            %   body2 = second body in joint. This is the body directly
+            %   connected to the cylindrical joint.
+            %   pointOnBody1 = 3D location of the point on body1 used to define the
+            %   vector for the b2 constraint in this joint.
+            %   pointOnBody2 = 3D location of the point on body2 used to define the
+            %   vector for the b2 constraint in this joint.
+            %   vectorOnBody1 = Vector on body1 used to define the
+            %   revolute joint. This vector is orthogonal to vectorOnBody2.
+            %   vector1OnBody2 = Vector on body2 used to define the
+            %   translation axis of this body.. This vector is orthogonal to vectorOnBody1.
+            %   vector2OnBody2 = 1st vector on body2 used to define the
+            %   plane orthogonal to the translational axis. This is
+            %   orthogonal to vector1OnBody2.
+            %   vector3OnBody2 = 2nd vector on body2 used to define the
+            %   plane orthogonal to the translational axis. This is
+            %   orthogonal to vector1OnBody2.
+            
+            necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} ...
+                {'pointOnBody2'} {'vectorOnBody1'} {'vector1OnBody2'}  {'vector2OnBody2'}  {'vector3OnBody2'}];
+            
+            % Check to make sure attributes are provided.
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'constraintName')
+                disp('constraintName not provided. Setting to default');
+                attributes.constraintName = [constraintType ' constraint'];
+            end
+            
+            % Set f(t) fDot(t) and fDDot(t) equal to zero for this
+            % constraint.
+            ft = @(t)0;
+            ftDot = @(t)0;
+            ftDDot = @(t)0;
+            
+            % Define the DP1 constraint in this joint
+            a = attributes;
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            aBarI = a.vectorOnBody1(:);
+            aBarJ = a.vector1OnBody2(:);
+            newConstraint1 = DP1constraint(bodyI, bodyJ, aBarI, aBarJ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Define the B2 constraint in this joint
+            sBarIP = a.pointOnBody1(:);
+            sBarJQ = a.pointOnBody2(:);
+            bBarJ = a.vector2OnBody2(:);
+            cBarJ = a.vector3OnBody2(:);
+            newConstraint2 = DP2constraint(bodyJ, bodyI, bBarJ, sBarJQ, sBarIP, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint3 = DP2constraint(bodyJ, bodyI, cBarJ, sBarJQ, sBarIP, ft, ftDot, ftDDot, a.constraintName);
+            
+            
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = 1;
+            newConstraint2.myIsKinematic = 1;
+            newConstraint3.myIsKinematic = 1;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if isempty(obj.myNumKinematicConstraints)
+                obj.myNumKinematicConstraints = 0;
+            end
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 3;
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with the new constraints
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            obj.myConstraints{nConst + 3} = newConstraint3;
         end
         function obj = createUniversalJoint(obj,attributes)
             % Create a universal joint in this system.
@@ -2680,7 +2879,7 @@ classdef multibodySystem < handle
             if isempty(obj.myNumKinematicConstraints)
                 obj.myNumKinematicConstraints = 0;
             end
-            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 5;
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 4;
             
             % Current number of constraints
             nConst = obj.myNumConstraints;
