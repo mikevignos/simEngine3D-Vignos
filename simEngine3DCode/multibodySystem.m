@@ -2595,8 +2595,6 @@ classdef multibodySystem < handle
                     obj.createSphericalJoint(attributes);
                 case 'cylindrical'
                     obj.createCylindricalJoint(attributes);
-                    
-                    
                 case 'translational'
                     obj.createTranslationalJoint(attributes);
                 case 'revolute'
@@ -2605,6 +2603,267 @@ classdef multibodySystem < handle
                     obj.createUniversalJoint(attributes);
             end
             
+        end
+        function obj = createUniversalJoint(obj,attributes)
+            %%%%%%%%%%%%%% STOPPED HERE!!!!!!!
+        end
+        function obj = createTranslationalJoint(obj,attributes)
+            % Create a translational joint in this system.
+            %
+            % Function inputs:
+            % attributes : structure
+            %   Structure containing the necessary attributes for a
+            %   translational joint.
+            %   body1 = first body in joint
+            %   body2 = second body in joint
+            %   pointOnBody1 = 3D location of a point along the translational axis of body1
+            %   pointOnBody2 = 3D location of a point along the translational axis of body2
+            %   vector1OnBody1 = 1st vector to define the plane of the
+            %   cylindrical joint on body1
+            %   vector2OnBody1 = 2nd vector to define the plane of the
+            %   cylindrical joint on body1.
+            %   vector1OnBody2 = Vector on body2 that is orthogonal to the
+            %   plane on body1.
+            %   vector2OnBody2 = Vector on body2 that is parallel to the
+            %   plane on body1 and orthogonal to vector1OnBody1.
+            
+             necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} ...
+                 {'pointOnBody2'} {'vector1OnBody1'} {'vector2OnBody1'} {'vector1OnBody2'} {'vector2OnBody2'}];
+            
+            % Check to make sure attributes are provided.
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'constraintName')
+                disp('constraintName not provided. Setting to default');
+                attributes.constraintName = [constraintType ' constraint'];
+            end
+            
+            % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+            % constraint.
+            ft = @(t)0;
+            ftDot = @(t)0;
+            ftDDot = @(t)0;
+            
+            % Define the attributes needed for the 2 DP1 constraints
+            % that define a B1 constraint
+            a = attributes;
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            aBarI = a.vector1OnBody1;
+            bBarI = a.vector2OnBody1;
+            cBarJ = a.vector1OnBody2;
+            newConstraint1 = DP1constraint(bodyI, bodyJ, aBarI, cBarJ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint2 = DP1constraint(bodyI, bodyJ, bBarI, cBarJ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Define the attributes needed for the 2 DP2 constraints
+            % that define a B2 constraint
+            sBarIP = a.pointOnBody1;
+            sBarJQ = a.pointOnBody2;
+            newConstraint3 = DP2constraint(bodyI, bodyJ, aBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint4 = DP2constraint(bodyI, bodyJ, bBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Define the attributes needed for the 3rd DP1 constraint
+            aBarJ = a.vector2OnBody2;
+            newConstraint5 = DP1constraint(bodyI, bodyJ, aBarI, aBarJ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = 1;
+            newConstraint2.myIsKinematic = 1;
+            newConstraint3.myIsKinematic = 1;
+            newConstraint4.myIsKinematic = 1;
+            newConstraint5.myIsKinematic = 1;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if isempty(obj.myNumKinematicConstraints)
+                obj.myNumKinematicConstraints = 0;
+            end
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 5;
+            
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with the new constraints
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            obj.myConstraints{nConst + 3} = newConstraint3;
+            obj.myConstraints{nConst + 4} = newConstraint4;
+            obj.myConstraints{nConst + 5} = newConstraint5;            
+        end
+        function obj = createCylindricalJoint(obj,attributes)
+            % Create a cylindrical joint in this system.
+            %
+            % Function inputs:
+            % attributes : structure
+            %   Structure containing the necessary attributes for a
+            %   cylindrical joint.
+            %   body1 = first body in joint
+            %   body2 = second body in joint
+            %   pointOnBody1 = 3D location of a point along the translational axis of body1
+            %   pointOnBody2 = 3D location of a point along the translational axis of body2
+            %   vector1OnBody1 = 1st vector to define the plane of the
+            %   cylindrical joint on body1
+            %   vector2OnBody1 = 2nd vector to define the plane of the
+            %   cylindrical joint on body1.
+            %   vectorOnBody2 = Vector on body2 that is orthogonal to the
+            %   plane on body1.
+            
+            necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} {'pointOnBody2'} {'vector1OnBody1'} {'vector2OnBody1'} {'vectorOnBody2'}];
+            
+            % Check to make sure attributes are provided.
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'constraintName')
+                disp('constraintName not provided. Setting to default');
+                attributes.constraintName = [constraintType ' constraint'];
+            end
+            
+            % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+            % constraint.
+            ft = @(t)0;
+            ftDot = @(t)0;
+            ftDDot = @(t)0;
+            
+            % Define the attributes needed for the 2 DP1 constraints
+            % that define a B1 constraint
+            a = attributes;
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            aBarI = a.vector1OnBody1;
+            bBarI = a.vector2OnBody1;
+            cBarJ = a.vectorOnBody2;
+            newConstraint1 = DP1constraint(bodyI, bodyJ, aBarI, cBarJ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint2 = DP1constraint(bodyI, bodyJ, bBarI, cBarJ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Define the attributes needed for the 2 DP2 constraints
+            % that define a B2 constraint
+            sBarIP = a.pointOnBody1;
+            sBarJQ = a.pointOnBody2;
+            newConstraint3 = DP2constraint(bodyI, bodyJ, aBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint4 = DP2constraint(bodyI, bodyJ, bBarI, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = 1;
+            newConstraint2.myIsKinematic = 1;
+            newConstraint3.myIsKinematic = 1;
+            newConstraint4.myIsKinematic = 1;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if isempty(obj.myNumKinematicConstraints)
+                obj.myNumKinematicConstraints = 0;
+            end
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 5;
+
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with the new constraints
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            obj.myConstraints{nConst + 3} = newConstraint3;
+            obj.myConstraints{nConst + 4} = newConstraint4;
+        end
+        function obj = createRevoluteJoint(obj,attributes)
+            % Create a revolute joint in this system.
+            %
+            % Function inputs:
+            % attributes : structure
+            %   Structure containing the necessary attributes for a
+            %   revolute joint.
+            %   body1 = first body in joint
+            %   body2 = second body in joint
+            %   pointOnBody1 = 3D location of the spherical joint on body1
+            %   pointOnBody2 = 3D location of the spherical joint on body2
+            %   vector1OnBody1 = 1st vector to define the plane of the
+            %   revolute joint on body1
+            %   vector2OnBody1 = 2nd vector to define the plane of the
+            %   revolute joiny on body1.
+            %   vectorOnBody2 = Vector on body2 that is orthogonal to the
+            %   plane on body1.
+            
+            necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} {'pointOnBody2'} {'vector1OnBody1'} {'vector2OnBody1'} {'vectorOnBody2'}];
+            
+            % Check to make sure attributes are provided.
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'constraintName')
+                disp('constraintName not provided. Setting to default');
+                attributes.constraintName = [constraintType ' constraint'];
+            end
+            
+            % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+            % constraint.
+            ft = @(t)0;
+            ftDot = @(t)0;
+            ftDDot = @(t)0;
+            
+            % Define the attributes needed for the 3 CD constraints
+            % that define a spherical joint.
+            a = attributes;
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            sBarIP = a.pointOnBody1;
+            sBarJQ = a.pointOnBody2;
+            cVec1 = [1 0 0]';
+            cVec2 = [0 1 0]';
+            cVec3 = [0 0 1]';
+            
+            % Create the 3 CD constraints for the spherical joint
+            newConstraint1 = CDconstraint(bodyI, bodyJ, cVec1, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint2 = CDconstraint(bodyI, bodyJ, cVec2, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint3 = CDconstraint(bodyI, bodyJ, cVec3, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Define the attributes need for the two DP1 constraints
+            aBarI = a.vector1OnBody1;
+            bBarI = a.vector2OnBody1;
+            cBarJ = a.vectorOnBody2;
+            newConstraint4 = DP1constraint(bodyI, bodyJ, aBarI, cBarJ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint5 = DP1constraint(bodyI, bodyJ, bBarI, cBarJ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = 1;
+            newConstraint2.myIsKinematic = 1;
+            newConstraint3.myIsKinematic = 1;
+            newConstraint4.myIsKinematic = 1;
+            newConstraint5.myIsKinematic = 1;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if isempty(obj.myNumKinematicConstraints)
+                obj.myNumKinematicConstraints = 0;
+            end
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 5;
+            
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with the new constraints
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            obj.myConstraints{nConst + 3} = newConstraint3;
+            obj.myConstraints{nConst + 4} = newConstraint4;
+            obj.myConstraints{nConst + 5} = newConstraint5; 
         end
         function obj = createSphericalJoint(obj,attributes)
             % Create a spherical joint in  this system.
@@ -2636,9 +2895,9 @@ classdef multibodySystem < handle
             
             % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
             % constraint.
-            ft = 0;
-            ftDot = 0;
-            ftDDot = 0;
+            ft = @(t)0;
+            ftDot = @(t)0;
+            ftDDot = @(t)0;
             
             % Define the attributes needed for the 3 CD constraints
             % that define a spherical joint.
