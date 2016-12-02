@@ -2602,10 +2602,94 @@ classdef multibodySystem < handle
                 case 'universal'
                     obj.createUniversalJoint(attributes);
             end
-            
         end
         function obj = createUniversalJoint(obj,attributes)
-            %%%%%%%%%%%%%% STOPPED HERE!!!!!!!
+            % Create a universal joint in this system.
+            %
+            % Function inputs:
+            % attributes : structure
+            %   Structure containing the necessary attributes for a
+            %   translational joint.
+            %   body1 = first body in joint
+            %   body2 = second body in joint
+            %   pointOnBody1 = 3D location of the point on body1 used to define the
+            %   spherical joint portion of the universal joint.
+            %   pointOnBody2 = 3D location of the point on body2 used to define the
+            %   spherical joint portion of the universal joint.
+            %   vectorOnBody1 = Vector on body1 used to define the
+            %   universal joint. This vector is orthogonal to vectorOnBody2.
+            %   vectorOnBody2 = Vector on body2 used to define the
+            %   universal joint. This vector is orthogonal to vectorOnBody1.
+            
+            necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} ...
+                 {'pointOnBody2'} {'vectorOnBody1'} {'vectorOnBody2'}];
+            
+            % Check to make sure attributes are provided.
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for ' constraintType ' constraint.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'constraintName')
+                disp('constraintName not provided. Setting to default');
+                attributes.constraintName = [constraintType ' constraint'];
+            end
+            
+            % Set f(t) fDot(t) and fDDot(t) equal tro zero for this
+            % constraint.
+            ft = @(t)0;
+            ftDot = @(t)0;
+            ftDDot = @(t)0;
+            
+            % Define the attributes needed for the 3 CD constraints
+            % that define the spherical joint portion of the universal
+            % joint.
+            a = attributes;
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            sBarIP = a.pointOnBody1;
+            sBarJQ = a.pointOnBody2;
+            cVec1 = [1 0 0]';
+            cVec2 = [0 1 0]';
+            cVec3 = [0 0 1]';
+            
+            % Create the 3 CD constraints for the spherical joint
+            newConstraint1 = CDconstraint(bodyI, bodyJ, cVec1, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint2 = CDconstraint(bodyI, bodyJ, cVec2, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            newConstraint3 = CDconstraint(bodyI, bodyJ, cVec3, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Define the attributes needed for the DP1 constraint in the
+            % universal joint. Create the constraint.
+            bodyI = a.body1;
+            bodyJ = a.body2;
+            aBarI = a.vectorOnBody1;
+            aBarJ = a.vectorOnBody2;
+            newConstraint4 = DP1constraint(bodyI, bodyJ, aBarI, aBarJ, ft, ftDot, ftDDot, a.constraintName);
+            
+            % Set flag for kinematic vs driving constraint
+            newConstraint1.myIsKinematic = 1;
+            newConstraint2.myIsKinematic = 1;
+            newConstraint3.myIsKinematic = 1;
+            newConstraint4.myIsKinematic = 1;
+            
+            % Update count of kinematic constraints and number of driving
+            % constraints
+            if isempty(obj.myNumKinematicConstraints)
+                obj.myNumKinematicConstraints = 0;
+            end
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 5;
+            
+            % Current number of constraints
+            nConst = obj.myNumConstraints;
+            
+            % Update system with the new constraints
+            obj.myConstraints{nConst + 1} = newConstraint1;
+            obj.myConstraints{nConst + 2} = newConstraint2;
+            obj.myConstraints{nConst + 3} = newConstraint3;
+            obj.myConstraints{nConst + 4} = newConstraint4;
         end
         function obj = createTranslationalJoint(obj,attributes)
             % Create a translational joint in this system.
