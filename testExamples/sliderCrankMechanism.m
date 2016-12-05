@@ -194,31 +194,65 @@ sys.addBasicConstraint(isKinematic,'d',a5);
 a6.bodyJ = 1;
 a6.bodyI = 2;
 a6.aBarJ = [0 1 0]';
-a6.aBarI = [0 1 0]';
-a6.ft = @(t)cos(2*pi*t + pi/2);
-a6.ftDot = @(t)(-2*pi*sin(2*pi*t + pi/2));
-a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t + pi/2));
+a6.aBarI = [0 0 -1]';
+a6.ft = @(t)cos(-2*pi*t);
+a6.ftDot = @(t)(2*pi*sin(-2*pi*t));
+a6.ftDDot = @(t)(4*pi^2*cos(-2*pi*t));
 a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
-%% Perform inverse dynamics analysis
+%% Perform kinematics analysis
 if 1
     timeStart = 0;
     timeEnd = 1;
-    timeStep = 10^-2;
+    timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
     sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+%     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     analysisTime = toc;
     save('sliderCrankMechanism.mat','sys');
 else
     load('sliderCrankMechanism.mat')
 end
 
-disp(['Inverse Dynamics Analysis for sliderCrankMechanism took ' num2str(analysisTime) ' seconds.'])
+% disp(['Inverse Dynamics Analysis for sliderCrankMechanism took ' num2str(analysisTime) ' seconds.'])
+
+%% Plot the position of the slider vs time
+sliderPosition = sys.myBodies{4}.myRTotal;
+time = sys.myBodies{4}.myTimeTotal;
+
+figure
+hold on
+plot(time,sliderPosition(1,:))
+plot(time,sliderPosition(2,:))
+plot(time,sliderPosition(3,:))
+legend('x','y','z')
+xlabel('Time (sec)')
+ylabel('Position (m)')
+title('Slider')
+hold off
+
+%% Plot the position of point B versus time
+crankOrientation = sys.myBodies{2}.myPTotal;
+crankPosition = sys.myBodies{2}.myRTotal;
+pointBPosition = zeros(3,length(time));
+sB = [0 0.08 0]';
+for iT = 1:length(time)
+    A = simEngine3DUtilities.p2A(crankOrientation(:,iT));
+    pointBPosition(:,iT) = crankPosition(:,iT) + A*sB;
+end
+
+figure
+hold on
+plot(time,pointBPosition(1,:));
+plot(time,pointBPosition(2,:));
+plot(time,pointBPosition(3,:));
+legend('x','y','z')
+hold off
 
 %% Display torque at the revolute joint 
 % Extract torque for body 2 due to all constraints and time
@@ -239,7 +273,7 @@ plot(time,torqueDriving(2,:))
 plot(time,torqueDriving(3,:));
 xlabel('Time (sec)')
 ylabel('Torque (N*m)')
-axis([0 2 -1 1]);
+% axis([0 1 -1 1]);
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ')
 title('Torque Due to DP1 Driving Constraint in Pendulum Reference Frame')

@@ -161,6 +161,18 @@ classdef multibodySystem < handle
             % timeStep : double
             %   Desired time step for kinematics analysis in seconds.
             
+            % Check to make sure this is a fully constrained system
+            nConstTotal = obj.myNumConstraints + obj.myNumBodiesMinusGround;
+            if (nConstTotal < 7*obj.myNumBodiesMinusGround)
+                error('System not fully constrained. Cannot perform inverse dynamics analysis')
+            elseif (nConstTotal > 7*obj.myNumBodiesMinusGround)
+                error('System over-constrained. Cannot perform inverse dynamics analysis')
+            end
+            
+            % Perform an assembly analysis before beginning the inverse
+            % dynamics analysis.
+            obj.assemblyAnalysis();
+           
             time = startTime:timeStep:endTime;
             
             for iT = 1:length(time)
@@ -188,7 +200,7 @@ classdef multibodySystem < handle
                 
                 % Store the position and orientation information for the
                 % current time step
-                obj.storeSystemState();
+                obj.storeSystemState(iT);
                 
                 if (displayFlag == 1)
                     disp(['Kinematics analysis completed for t = ' num2str(t) ' sec.']);
@@ -2778,10 +2790,18 @@ classdef multibodySystem < handle
             sBarJQ = a.pointOnBody2(:);
             bBarJ = a.vector2OnBody2(:);
             cBarJ = a.vector3OnBody2(:);
+            
+            % Check to make sure the vectors on body2 are orthogonal
+            if (dot(aBarJ,bBarJ)~= 0) || (dot(aBarJ,cBarJ) ~= 0) || (dot(bBarJ,cBarJ)~= 0)
+                error('Vectors on body2 must be orthogonal');
+            end
+            
+            % Define DP2 constraints for t
             newConstraint2 = DP2constraint(bodyJ, bodyI, bBarJ, sBarJQ, sBarIP, ft, ftDot, ftDDot, a.constraintName);
             newConstraint3 = DP2constraint(bodyJ, bodyI, cBarJ, sBarJQ, sBarIP, ft, ftDot, ftDDot, a.constraintName);
-            
-            
+%             newConstraint2 = DP2constraint(bodyI, bodyJ, bBarJ, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+%             newConstraint3 = DP2constraint(bodyI, bodyJ, cBarJ, sBarIP, sBarJQ, ft, ftDot, ftDDot, a.constraintName);
+
             % Set flag for kinematic vs driving constraint
             newConstraint1.myIsKinematic = 1;
             newConstraint2.myIsKinematic = 1;
