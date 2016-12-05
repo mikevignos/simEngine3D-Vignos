@@ -234,6 +234,16 @@ classdef multibodySystem < handle
             %   Flag for user to indicate if they want to display when each
             %   time step of analysis has been completed.
             
+            % Check to make sure the system is not overconstrained.
+            nConstTotal = obj.myNumConstraints + obj.myNumBodiesMinusGround;
+            if (nConstTotal > 7*obj.myNumBodiesMinusGround)
+                error('System over-constrained.')
+            end
+            
+            % Perform an assembly analysis before beginning the inverse
+            % dynamics analysis.
+            obj.assemblyAnalysis();
+            
             % Compute time vector for analysis
             time = startTime:timestep:endTime;
             
@@ -1330,7 +1340,7 @@ classdef multibodySystem < handle
             phiK = obj.myPhiK;
             phiD = obj.myPhiD;
             phiKD = [phiK; phiD];
-            if (abs(norm(phiKD)) > 10^-9)
+            if (abs(norm(phiKD)) > 10^-6)
                 error('Constraint matrix not equal to zero in initial pose.');
                 phiFullFlag = 0;
             else

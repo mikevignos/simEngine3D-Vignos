@@ -64,38 +64,7 @@ JMatrix4(3,3) = Jzz;
 isGround4 = 0;
 sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4);
 
-
-
-
-
-%%%%%%%%%%%%%%%%%%%% For this example, I need to implement the ability to
-%%%%%%%%%%%%%%%%%%%% prescribe a constant angular velocity.
-
-
 %% Set initial conditions of each body
-% The initial positions and orientations are provided from section 10.2.2.
-% Initial position
-% r1Initial = zeros(3,1); % Ground
-% r2Initial = [0.00002; 0.09982; 0.12005]; % Crank
-% r3Initial = [0.09993; 0.05183; 0.09998]; % Connector
-% r4Initial = [0.19959; 0.00057; -0.00008]; % Slider.
-% rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-% 
-% % Initial orientation
-% % Ground
-% p1 = [1.0 0.0 0.0 0.0]'; 
-% 
-% % Crank
-% p2 = [0.72090 0.69306 0.00004 -0.00004]';
-% 
-% % Connector (body3)
-% p3 = [0.88723 -0.21202 0.39833 -0.09569]';
-% 
-% % Slider
-% p4 =  [1.0 0.0 -0.00012 -0.00025]';
-% 
-% pInitial = [p1; p2; p3; p4];
-
 r1Initial = zeros(3,1); % Ground
 r2Initial = [0.0; 0.1; 0.12]; % Crank
 r3Initial = [0.1; 0.05; 0.1]; % Connector
@@ -127,7 +96,6 @@ sys.updateSystemState( rInitial, [], [], pInitial, [], [], t);
 %% Plot starting configuration of system
 sys.plot(1);
 view([90 0])
-% saveas(gcf,'A8P1_MechanismInitialPosition.png');
 
 %% Define revolute joint between crank and ground
 a1.body1 = 1;
@@ -194,15 +162,15 @@ sys.addBasicConstraint(isKinematic,'d',a5);
 a6.bodyJ = 1;
 a6.bodyI = 2;
 a6.aBarJ = [0 1 0]';
-a6.aBarI = [0 0 -1]';
-a6.ft = @(t)cos(-2*pi*t);
-a6.ftDot = @(t)(2*pi*sin(-2*pi*t));
-a6.ftDDot = @(t)(4*pi^2*cos(-2*pi*t));
+a6.aBarI = [0 1 0]';
+a6.ft = @(t)cos(-2*pi*t + pi/2);
+a6.ftDot = @(t)(2*pi*sin(-2*pi*t + pi/2));
+a6.ftDDot = @(t)(4*pi^2*cos(-2*pi*t + pi/2));
 a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
-%% Perform kinematics analysis
+%% Perform analysis
 if 1
     timeStart = 0;
     timeEnd = 1;
@@ -211,21 +179,25 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-    sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+    %     sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+    %     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
     save('sliderCrankMechanism.mat','sys');
 else
     load('sliderCrankMechanism.mat')
 end
 
-% disp(['Inverse Dynamics Analysis for sliderCrankMechanism took ' num2str(analysisTime) ' seconds.'])
+disp(['Inverse Dynamics Analysis for sliderCrankMechanism took ' num2str(analysisTime) ' seconds.'])
 
-%% Plot the position of the slider vs time
+%% Plot the position, velocity, and acceleration of the slider vs time
 sliderPosition = sys.myBodies{4}.myRTotal;
+sliderVelocity = sys.myBodies{4}.myRDotTotal;
+sliderAccel = sys.myBodies{4}.myRDDotTotal;
 time = sys.myBodies{4}.myTimeTotal;
 
 figure
+subplot(3,1,1)
 hold on
 plot(time,sliderPosition(1,:))
 plot(time,sliderPosition(2,:))
@@ -233,6 +205,30 @@ plot(time,sliderPosition(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Position (m)')
+title('Slider')
+hold off
+
+
+subplot(3,1,2)
+hold on
+plot(time,sliderVelocity(1,:))
+plot(time,sliderVelocity(2,:))
+plot(time,sliderVelocity(3,:))
+legend('x','y','z')
+xlabel('Time (sec)')
+ylabel('Velocity (m/s)')
+title('Slider')
+hold off
+
+
+subplot(3,1,3)
+hold on
+plot(time,sliderAccel(1,:))
+plot(time,sliderAccel(2,:))
+plot(time,sliderAccel(3,:))
+legend('x','y','z')
+xlabel('Time (sec)')
+ylabel('Acceleration (m/s^2)')
 title('Slider')
 hold off
 
