@@ -75,7 +75,7 @@ classdef multibodySystem < handle
     methods
         function obj = multibodySystem()
         end
-        function obj = addBody(obj,bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix)
+        function obj = addBody(obj,bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix, gravityDirection)
             % mass : double
             %   Mass of body in kg
             %
@@ -95,7 +95,7 @@ classdef multibodySystem < handle
             end
             
             % Add a body to the system
-            newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix);
+            newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix, gravityDirection);
             obj.myBodies{bodyNumber} = newBody;
         end
         function obj = addForce(obj, bodyNumber, force, sBar, forceName)
@@ -1423,7 +1423,7 @@ classdef multibodySystem < handle
             maxIter = 50;
             opt = optimoptions('fminunc');
             opt.GradObj = 'on';
-            tol = 10^-6;
+            tol = 10^-3;
             
             % Extract initial values
             if (obj.myBodyIsGround == 1)
@@ -3079,7 +3079,7 @@ classdef multibodySystem < handle
             if isempty(obj.myNumKinematicConstraints)
                 obj.myNumKinematicConstraints = 0;
             end
-            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 5;
+            obj.myNumKinematicConstraints = obj.myNumKinematicConstraints + 4;
 
             % Current number of constraints
             nConst = obj.myNumConstraints;

@@ -1,7 +1,8 @@
 %% sliderCrankMechanism.m
 % Taken from ch. 12.2 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
 % Mechanical Systems (Allyn and Bacon, 1989)
-% Used to test the combinaton of a revolute joint and translational joint
+% Used to test the combinaton of a spherical, revolute-cylindrical,
+% revolute, and translation joint.
 clear; close all; clc;
 
 %% Create instance of multibody system

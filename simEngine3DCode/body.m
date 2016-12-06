@@ -59,7 +59,7 @@ classdef body < handle
     end
     
     methods
-        function obj = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix)
+        function obj = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix, gravityDirection)
             % Set parameters that are sent in
             obj.myBodyNumber = bodyNumber;
             obj.myBodyType = bodyType;
@@ -79,7 +79,13 @@ classdef body < handle
             % Add the force of gravity to this body. This currently assumes
             % that gravity acts in the -Z direction.
             if (isGround == 0)
-                force = [0 0 -9.81*mass]';
+                if strcmp(gravityDirection,'-z')
+                    force = [0 0 -9.81*mass]';
+                elseif strcmp(gravityDirection,'-y')
+                    force = [0 -9.81*mass 0]';
+                else
+                    error('This gravity direction currently not implemented.');
+                end
                 sBar = [0 0 0]';
                 obj.addForce(force, sBar, 'Force of Gravity');
             end
