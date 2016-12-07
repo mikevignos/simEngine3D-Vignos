@@ -120,7 +120,7 @@ classdef multibodySystem < handle
             force = force(:);
             nForces = obj.myBodies{bodyNumber}.myNumForces;
             
-            if vargin < 5
+            if nargin < 5
                 forceName = ['Force ' num2str(nForces+1) ' on body ' num2str(bodyNumber) ];
             end
             
@@ -141,7 +141,7 @@ classdef multibodySystem < handle
             torque = torque(:);
             nTorques = obj.myBodies{bodyNumber}.myNumTorques;
             
-            if vargin < 4
+            if nargin < 4
                 torqueName = ['Torque ' num2str(nTorques+1) ' on body ' num2str(bodyNumber) ];
             end
             
@@ -169,10 +169,6 @@ classdef multibodySystem < handle
                 error('System over-constrained. Cannot perform inverse dynamics analysis')
             end
             
-            % Perform an assembly analysis before beginning the inverse
-            % dynamics analysis.
-            obj.assemblyAnalysis();
-           
             time = startTime:timeStep:endTime;
             
             for iT = 1:length(time)
@@ -207,6 +203,191 @@ classdef multibodySystem < handle
                 end
             end
         end
+        function obj = setInitialPose(obj, rInitial, pInitial, assemblyAnalysisFlag)
+            % Set the initial position and orientation for each body in the
+            % system. Then, perform an assembly analysis to optimize the
+            % inital pose.
+            %
+            % Function inputs:
+            % rInitial: 3*nBodies x 1 vector
+            %   Vector of the initial position for each body, including the ground.
+            %
+            % pInitial: 4*nBodies x 1 vector
+            %   Vector of the initial orientation for each body, including
+            %   the ground.
+            %
+            % assemblyAnalysisFlag : int
+            %   Flag to set whether or not the user wants to perform an
+            %   assembly analysis before simulating.
+            t = 0;
+            obj.updateSystemState( rInitial, [], [], pInitial, [], [], t);
+            
+            if (assemblyAnalysisFlag == 1)
+                obj.assemblyAnalysis();
+            end
+        end
+        function obj = computeAndSetInitialVelocities(obj, knownBodies, knownInitialRDot, knownInitialPDot)
+            % Compute initial velocities for unknown bodies.
+            %
+            % Function inputs:
+            % knownBodies : vector
+            %   Vector containing the list of bodies that have a known
+            %   initial velocity.
+            %
+            % knownInitalRDot : 3*length(knownBodies) x 1 vector
+            %   Vector containing the initial translation velocities for
+            %   the bodies within known initial velocities.
+            %
+            % knownInitialPDot : 4*length(knownBodies) x 1 vector
+            %   Vector containing the initial rotational velocities for
+            %   the bodies within known initial velocities.
+            
+            nBodies = obj.myNumBodiesMinusGround;
+            
+            % Compute the necessary jacobians and the Pmatrix
+            obj.computePhiPartialR();
+            phiR = obj.myPhiPartialR;
+            
+            obj.computePhiPartialP();
+            phiP = obj.myPhiPartialP;
+            
+            obj.computePMatrix();
+            Pmatrix = obj.myPMatrix;
+            
+            obj.computeNu();
+            nu = obj.myNu;
+            nuConst = nu(1:obj.myNumConstraints); % Only want the portion of nu related to the constraints.
+            
+            % Remove portions of these matrices that are related to bodies
+            % with known velocities
+            bodiesVec = 1:obj.myNumBodiesMinusGround;
+            if (obj.myBodyIsGround == 1)
+                bodiesToRemove = knownBodies(:) - 1; % Subtract 1 because the jacobians and the P matrix do not include the ground.
+            else
+                bodiesToRemove = knownBodies(:);
+            end
+            
+            bodiesToKeep = [];
+            for i = 1:length(bodiesToRemove)
+                if (i == 1)
+                    bodiesToKeep = find(bodiesToRemove(i) ~= bodiesVec);
+                else
+                    temp = find(bodiesToRemove(i) ~= bodiesVec);
+                    bodiesToKeep = [bodiesToKeep temp];
+                end
+            end
+            
+            if isempty(bodiesToRemove)
+                phiRUnknown = phiR;
+                phiPUnknown = phiP;
+                PmatrixUnknown = Pmatrix;
+                
+                % Create matrix to solve for the unknown velocities
+                % Left hand side
+                nBodiesNew = nBodies - length(bodiesToRemove);
+                LHSmatrix = [phiRUnknown phiPUnknown;
+                    zeros(nBodiesNew,3*nBodiesNew) PmatrixUnknown];
+                
+                % Right hand side
+                firstEntry = nuConst;
+                secondEntry = zeros(nBodiesNew,1);
+                RHS = [firstEntry;
+                    secondEntry];
+                
+            else
+                phiRKnown = phiR(:,(3*bodiesToRemove - 2):3*bodiesToRemove);
+                phiRUnknown = phiR;
+                phiRUnknown(:,(3*bodiesToRemove - 2):3*bodiesToRemove) = [];
+                
+                phiPKnown = phiP(:,(4*bodiesToRemove - 3):4*bodiesToRemove);
+                phiPUnknown = phiP;
+                phiPUnknown(:,(4*bodiesToRemove - 3):4*bodiesToRemove) = [];
+                
+                PmatrixKnown = Pmatrix(bodiesToRemove,(4*bodiesToRemove - 3):4*bodiesToRemove);
+                
+                PmatrixUnknown = Pmatrix;
+                PmatrixUnknown(bodiesToRemove,:) = [];
+                PmatrixUnknown(:,(4*bodiesToRemove - 3):4*bodiesToRemove) = [];
+                
+                % Create matrix to solve for the unknown velocities
+                % Left hand side
+                nBodiesNew = nBodies - length(bodiesToRemove);
+                LHSmatrix = [phiRUnknown phiPUnknown;
+                    zeros(nBodiesNew,3*nBodiesNew) PmatrixUnknown];
+                
+                % Right hand side
+                firstEntry = nuConst - phiRKnown*knownInitialRDot - phiPKnown*knownInitialPDot;
+                secondEntry = zeros(nBodiesNew,1);
+                RHS = [firstEntry;
+                    secondEntry];
+            end
+            
+            
+            % Solve for the unknown velocities.
+            vel = LHSmatrix\RHS;
+            
+            % Extract translational and rotational velocities
+            velR = vel(1:3*nBodiesNew);
+            velP = vel((3*nBodiesNew + 1):7*nBodiesNew);
+                        
+            % Add in the known velocities
+            velRTotal = zeros(3*nBodies,1);
+            velPTotal = zeros(4*nBodies,1);
+            unknownCount = 1;
+            knownCount = 1;
+            for iB = 1:nBodies
+                if any(bodiesToRemove == iB)
+                    velRTotal((3*iB - 2):3*iB) = knownInitialRDot((3*knownCount - 2):3*knownCount);
+                    velPTotal((4*iB - 3):4*iB) = knownInitialPDot((4*knownCount - 3):4*knownCount);
+                    knownCount = knownCount + 1;
+                else
+                    velRTotal((3*iB - 2):3*iB) = velR((3*unknownCount - 2):3*unknownCount);
+                    velPTotal((4*iB - 3):4*iB) = velP((4*unknownCount - 3):4*unknownCount);
+                    unknownCount = unknownCount + 1;
+                end
+            end
+                    
+            
+            % Add in the ground if it is in the system
+            if (obj.myBodyIsGround == 1)
+                rDotTemp = velRTotal;
+                pDotTemp = velPTotal;
+                
+                rDotInitial = [0; 0; 0; rDotTemp];
+                pDotInitial = [0; 0; 0; 0; pDotTemp];
+            else
+                rDotInitial = velRTotal;
+                pDotInitial = velPTotal;
+            end
+            
+             % Update the system state to store these computed velocities.
+             time = 0;
+             obj.updateSystemState([], rDotInitial, [], [], pDotInitial, [], time);
+        end        
+        function obj = removeRedundantConstraints(obj)
+            % Remove redundant constraints from an over-constrained system.
+            % A successful assembly analysis must have been performed prior
+            % to running this function.
+            
+            % Evalute Jacobian of kinematic constraint equations
+            nKinematicConst = obj.myNumKinematicConstraints;
+            obj.computePhiPartialR();
+            phiPartialR = obj.myPhiPartialR(1:nKinematicConst,:);
+            
+            obj.computePhiPartialP();
+            phiPartialP = obj.myPhiPartialP(1:nKinematicConst,:);
+            
+            phiKJacobian = [phiPartialR phiPartialP];
+            
+            
+            % Determine the rank of this Jacobian
+            rankOfJacobian =  rank(phiKJacobian);
+            
+            A = rref(phiKJacobian);
+            
+            [L, U, P, Q] = simEngine3DUtilities.gecp(phiKJacobian);
+            
+        end
         function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, iterationMethod, displayFlag)
             % Perform a dynamics analysis.
             %
@@ -237,13 +418,10 @@ classdef multibodySystem < handle
             % Check to make sure the system is not overconstrained.
             nConstTotal = obj.myNumConstraints + obj.myNumBodiesMinusGround;
             if (nConstTotal > 7*obj.myNumBodiesMinusGround)
-                error('System over-constrained.')
+                disp('System over-constrained. Attempting to remove redundant constraints.')
+                obj.removeRedundantConstraints();
             end
-            
-            % Perform an assembly analysis before beginning the inverse
-            % dynamics analysis.
-            obj.assemblyAnalysis();
-            
+                       
             % Compute time vector for analysis
             time = startTime:timestep:endTime;
             
@@ -1340,7 +1518,7 @@ classdef multibodySystem < handle
             phiK = obj.myPhiK;
             phiD = obj.myPhiD;
             phiKD = [phiK; phiD];
-            if (abs(norm(phiKD)) > 10^-6)
+            if (abs(norm(phiKD)) > 10^-3)
                 error('Constraint matrix not equal to zero in initial pose.');
                 phiFullFlag = 0;
             else
@@ -1350,7 +1528,7 @@ classdef multibodySystem < handle
             % Check Euler parameter normalization constraint to make sure
             % it is zero. PhiP was already computed as part of phiFull so
             % you can just pull it.
-            if (abs(norm(obj.myPhiP)) > 10^-9)
+            if (abs(norm(obj.myPhiP)) > 10^-2)
                 error('Euler parameter normalization constraint not satisified in initial pose.')
                 eulerParamConstFlag = 0;
             else
@@ -1385,7 +1563,7 @@ classdef multibodySystem < handle
             
             % Check to ensure this constraint is satisfied
             check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
-            if (abs(norm(check)) > 10^-9)
+            if (abs(norm(check)) > 10^-6)
                 error('Velocity constraint not satisified in initial pose.')
                 velocityConstFlag = 0;
             else
@@ -1398,7 +1576,7 @@ classdef multibodySystem < handle
             Pmatrix = obj.myPMatrix;
             
             check2 = Pmatrix*pDotVec;
-            if (abs(norm(check2)) > 10^-9)
+            if (abs(norm(check2)) > 10^-7)
                 error('Euler parameter velocity normalization constraint is not satisified in initial pose.')
                 eulerParamVelConstFlag = 0;
             else
@@ -1423,7 +1601,7 @@ classdef multibodySystem < handle
             maxIter = 50;
             opt = optimoptions('fminunc');
             opt.GradObj = 'on';
-            tol = 10^-3;
+            tol = 10^-8;
             
             % Extract initial values
             if (obj.myBodyIsGround == 1)
@@ -1536,10 +1714,6 @@ classdef multibodySystem < handle
             elseif (nConstTotal > 7*obj.myNumBodiesMinusGround)
                 error('System over-constrained. Cannot perform inverse dynamics analysis')
             end
-            
-            % Perform an assembly analysis before beginning the inverse
-            % dynamics analysis.
-            obj.assemblyAnalysis();
             
             time = startTime:timestep:endTime;
             

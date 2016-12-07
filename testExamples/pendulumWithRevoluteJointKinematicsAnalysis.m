@@ -55,12 +55,15 @@ A2 = [0 0 1;
 p2 = simEngine3DUtilities.A2p(A2);
 pInitial = [p1; p2];
 
-% Initial velocities. Assume system starts from rest.
-rDotInitial = zeros(6,1);
-pDotInitial = zeros(8,1);
+assemblyAnalysisFlag = 1;
+sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
 
-t = 0;
-sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
+% Initial velocities. Assume system starts from rest.
+% rDotInitial = zeros(6,1);
+% pDotInitial = zeros(8,1);
+% 
+% t = 0;
+% sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 
 %% Plot starting configuration of system
 % sys.plot(1);
@@ -93,17 +96,18 @@ a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
-%% Perform dynamics analysis
+%% Perform  analysis
 if 1
     timeStart = 0;
     timeEnd = 10;
-    timeStep = 10^-2;
+    timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
     %     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+%     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     dynamicsAnalysisTime = toc;
     save('testRevoluteJoint.mat','sys');
 else

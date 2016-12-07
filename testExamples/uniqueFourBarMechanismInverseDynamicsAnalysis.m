@@ -170,9 +170,9 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+        sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
 %         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+%     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
     save('uniqueFourBarMechanism.mat','sys');
 else

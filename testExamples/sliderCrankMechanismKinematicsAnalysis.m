@@ -170,9 +170,9 @@ sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
 % knownInitialRDot = zeros(3,1);
 % knownInitialOmegaBar = [2*pi; 0; 0];
 % knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
-
-% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-sys.computeAndSetInitialVelocities([], [], []);
+% 
+% % sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+% sys.computeAndSetInitialVelocities([], [], []);
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -187,9 +187,9 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-    %     sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    %     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+        sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+%     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
     save('sliderCrankMechanism.mat','sys');
 else

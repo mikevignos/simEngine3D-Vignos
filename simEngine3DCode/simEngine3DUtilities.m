@@ -165,7 +165,60 @@ classdef simEngine3DUtilities
             
             Kmatrix = 2*K;
         end
+        function [pDot] = omegaBar2pDot(sys, bodyNumber, omegaBar)
+            % Convert angular velocity in the body reference frame
+            % (omegaBar) to pDot.
+            %
+            % Function inputs:
+            % sys : structure
+            %   Multibody system that contains the body for which you are
+            %   computing pDot.
+            %
+            % bodyNumber : int
+            %   Number of the body in the multibody system for which you
+            %   are converting omegaBar to pDot
+            %
+            % omegaBar : 3 x 1 vector
+            %   Angular velocity in the body reference frame.
+            %
+            % Function outputs:
+            % pDot : 4 x 1 vector
+            %   First time derivative of Euler parameters for this body.
+            
+            body = bodyNumber;
+            
+            % Compute the Gmatrix for this body.
+            sys.myBodies{body}.computeGmatrix();
+            G = sys.myBodies{body}.myG;
+            
+            % Compute pDot
+            pDot = 0.5*G'*omegaBar(:);
+        end
+%         function [x,U]=gausselim(A,b)
+%             % function to perform gauss eliminination
+%             %FORWARD ELIMINATION
+%             n=length(b);
+%             m=zeros(n,1);
+%             x=zeros(n,1);
+%             for k =1:n-1;
+%                 %compute the kth column of M
+%                 m(k+1:n) = A(k+1:n,k)/A(k,k);
+%                 %compute
+%                 %An=Mn*An-1;
+%                 %bn=Mn*bn-1;
+%                 for i=k+1:n
+%                     A(i, k+1:n) = A(i,k+1:n)-m(i)*A(k,k+1:n);
+%                 end;
+%                 b(k+1:n)=b(k+1:n)-b(k)*m(k+1:n);
+%             end
+%             U= triu(A);
+%             %BACKWARD ELIMINATION
+%             x(n)=b(n)/A(n,n);
+%             for k =n-1:-1:1;
+%                 b(1:k)=b(1:k)-x(k+1)* U(1:k,k+1);
+%                 x(k)=b(k)/U(k,k);
+%             end
+%         end
     end
-    
 end
 

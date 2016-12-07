@@ -13,7 +13,8 @@ mass1 = 1;
 length1 = 0;
 isGround1 = 1;
 JMatrix1 = eye(3,3);
-sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1);
+gravityDirection = '-z';
+sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
 % Add body2. The is the wheel.
 length2 = 2.0; % meters. This is actually the radius of the wheel.
@@ -29,7 +30,7 @@ JMatrix2(2,2) = Jyy;
 JMatrix2(3,3) = Jzz;
 
 isGround2 = 0;
-sys.addBody(2, 'wheel', isGround2, mass2, length2, JMatrix2);
+sys.addBody(2, 'wheel', isGround2, mass2, length2, JMatrix2, gravityDirection);
 
 % Add body3 to the system. This is the first link.
 length3 = 12.2; % meters
@@ -45,7 +46,7 @@ JMatrix3(2,2) = Jyy;
 JMatrix3(3,3) = Jzz;
 
 isGround3 = 0;
-sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3);
+sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3, gravityDirection);
 
 % Add body4 to the system. This is second link.
 length4 = 7.4;
@@ -61,40 +62,7 @@ JMatrix4(2,2) = Jyy;
 JMatrix4(3,3) = Jzz;
 
 isGround4 = 0;
-sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4);
-
-%% Set initial conditions of each body
-r1Initial = zeros(3,1); % Ground
-r2Initial = [0.0; 0.0; 0.0]; % Wheel
-r3Initial = [-3.75; -4.25; 4.25]; % Link1
-r4Initial = [-5.75; -8.5; 3.25]; % Link2
-rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-
-% Initial orientation
-% Ground
-p1 = [1.0 0.0 0.0 0.0]'; 
-
-% Wheel
-p2 = [1.0 0.0 0.0 0.0]';
-
-% Link1
-p3 = [0.8806 -0.29 -0.27 -0.26]';
-
-% Link2
-p4 =  [0.6072 -0.36 0.36 -0.61]';
-
-pInitial = [p1; p2; p3; p4];
-
-% Initial velocities
-% rDotInitial = zeros(6,1);
-% pDotInitial = zeros(8,1);
-
-t = 0;
-sys.updateSystemState( rInitial, [], [], pInitial, [], [], t);
-
-%% Plot starting configuration of system
-sys.plot(1);
-view([90 0])
+sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
 %% Define revolute joint between wheel and ground
 a1.body1 = 1;
@@ -143,17 +111,52 @@ a4.constraintName = 'Revolute joint b/w 2nd link and ground';
 
 sys.addJoint('revolute',a4);
 
-%% Add driving constraint between wheel and ground
-a5.bodyJ = 1;
-a5.bodyI = 2;
-a5.aBarJ = [0 1 0]';
-a5.aBarI = [0 0 1]';
-a5.ft = @(t)cos(pi*t + pi/2);
-a5.ftDot = @(t)(pi*sin(pi*t + pi/2));
-a5.ftDDot = @(t)(pi^2*cos(pi*t + pi/2));
-a5.constraintName = 'DP1 driving constraint';
-isKinematic = 0;
-sys.addBasicConstraint(isKinematic,'dp1',a5);
+
+%% Add torque to the wheel
+sys.addTorque(2, [10 0 0]', 'Torque applied to wheel');
+
+%% Set initial conditions of each body
+if exist('uniqueFourBarMechanismNoDrivingConstraint.mat')
+    load('uniqueFourBarMechanismNoDrivingConstraint.mat')
+else
+    r1Initial = zeros(3,1); % Ground
+    r2Initial = [0.0; 0.0; 0.0]; % Wheel
+    r3Initial = [-3.75; -4.25; 4.25]; % Link1
+    r4Initial = [-5.75; -8.5; 3.25]; % Link2
+    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+    
+    % Initial orientation
+    % Ground
+    p1 = [1.0 0.0 0.0 0.0]';
+    
+    % Wheel
+    p2 = [1.0 0.0 0.0 0.0]';
+    
+    % Link1
+    p3 = [0.8806 -0.29 -0.27 -0.26]';
+    
+    % Link2
+    p4 =  [0.6072 -0.36 0.36 -0.61]';
+    
+    pInitial = [p1; p2; p3; p4];
+    
+    assemblyAnalysisFlag = 1;
+    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+    
+    % Initial velocities
+    % known = 2;
+    % knownInitialRDot = zeros(3,1);
+    % knownInitialOmegaBar = [2*pi; 0; 0];
+    % knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
+    
+    % sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+    sys.computeAndSetInitialVelocities([], [], []);
+    save('uniqueFourBarMechanismNoDrivingConstraint.mat','sys');
+end
+
+%% Plot starting configuration of system
+sys.plot(1);
+view([90 0])
 
 %% Perform analysis
 if 1
@@ -165,8 +168,8 @@ if 1
     method = 'quasiNewton';
     tic;
 %         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-        sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
     save('uniqueFourBarMechanism.mat','sys');
 else
@@ -178,7 +181,10 @@ disp(['Inverse Dynamics Analysis for uniqueFourBarMechanism took ' num2str(analy
 %% Plot the position of point B versus time
 wheelOrientation = sys.myBodies{2}.myPTotal;
 wheelPosition = sys.myBodies{2}.myRTotal;
+time = sys.myBodies{4}.myTimeTotal;
 pointBPosition = zeros(3,length(time));
+
+
 sB = [0 0.0 2.0]';
 for iT = 1:length(time)
     A = simEngine3DUtilities.p2A(wheelOrientation(:,iT));
@@ -193,84 +199,21 @@ plot(time,pointBPosition(3,:));
 legend('x','y','z')
 hold off
 
-%% Plot the position, velocity, and acceleration of the slider vs time
+%% Plot the Z position and velocity of the rocker vs time
 rockerPosition = sys.myBodies{4}.myRTotal;
 rockerVelocity = sys.myBodies{4}.myRDotTotal;
 rockerAccel = sys.myBodies{4}.myRDDotTotal;
-time = sys.myBodies{4}.myTimeTotal;
 
 figure
-subplot(3,1,1)
-hold on
-plot(time,rockerPosition(1,:))
-plot(time,rockerPosition(2,:))
 plot(time,rockerPosition(3,:))
-legend('x','y','z')
 xlabel('Time (sec)')
-ylabel('Position (m)')
-title('Slider')
-hold off
+ylabel('Z Position (m)')
+title('Rocker Z Position')
 
 
-subplot(3,1,2)
-hold on
-plot(time,rockerVelocity(1,:))
-plot(time,rockerVelocity(2,:))
+figure
 plot(time,rockerVelocity(3,:))
-legend('x','y','z')
 xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-title('Slider')
+ylabel('Z Velocity (m/s)')
+title('Rocker Z Velocity')
 hold off
-
-
-subplot(3,1,3)
-hold on
-plot(time,rockerAccel(1,:))
-plot(time,rockerAccel(2,:))
-plot(time,rockerAccel(3,:))
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-title('Slider')
-hold off
-
-
-
-%% Display torque at the revolute joint 
-% Extract torque for body 2 due to all constraints and time
-torque = sys.myBodies{2}.myConstraintTorquesOmegaTotal;
-time = sys.myBodies{2}.myTimeTotal;
-
-% Compute theta over time.
-theta = 2*pi*time + pi/2;
-
-% Extract torque due to DP1 driving constraint.
-DP1const = 18;
-torqueDriving = torque((3*DP1const-2):3*DP1const,:);
-
-figure
-hold on
-plot(time,torqueDriving(1,:))
-plot(time,torqueDriving(2,:))
-plot(time,torqueDriving(3,:));
-xlabel('Time (sec)')
-ylabel('Torque (N*m)')
-% axis([0 1 -1 1]);
-% h2.Color = 'g';
-legend('TorqueX','TorqueY','TorqueZ')
-title('Torque Due to DP1 Driving Constraint in Pendulum Reference Frame')
-saveas(gcf,'A8P1_TorqueVsTime.png')
-
-figure
-hold on
-plot(time,torqueDriving(1,:))
-plot(time,torqueDriving(2,:))
-[ax, h1, h2] = plotyy(time,torqueDriving(3,:),time,theta);
-ax(1).YLim = [-250 250];
-xlabel('Time (sec)')
-ylabel(ax(1),'Torque (N*m)')
-ylabel(ax(2),'Theta (rad)')
-% h2.Color = 'g';
-legend('TorqueX','TorqueY','TorqueZ','Theta')
-saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')

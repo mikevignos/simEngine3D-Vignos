@@ -124,38 +124,43 @@ isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a5);
 
 %% Set initial conditions of each body
-r1Initial = zeros(3,1); % Ground
-r2Initial = [0.0; 0.0; 0.0]; % Wheel
-r3Initial = [-3.75; -4.25; 4.25]; % Link1
-r4Initial = [-5.75; -8.5; 3.25]; % Link2
-rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-
-% Initial orientation
-% Ground
-p1 = [1.0 0.0 0.0 0.0]'; 
-
-% Wheel
-p2 = [1.0 0.0 0.0 0.0]';
-
-% Link1
-p3 = [0.8806 -0.29 -0.27 -0.26]';
-
-% Link2
-p4 =  [0.6072 -0.36 0.36 -0.61]';
-
-pInitial = [p1; p2; p3; p4];
-
-assemblyAnalysisFlag = 1;
-sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-
-% Initial velocities
-% known = 2;
-% knownInitialRDot = zeros(3,1);
-% knownInitialOmegaBar = [2*pi; 0; 0];
-% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
-
-% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-sys.computeAndSetInitialVelocities([], [], []);
+if exist('uniqueFourBarMechanismDynamicsAnalysis.mat')
+    load('uniqueFourBarMechanismDynamicsAnalysis.mat')
+else
+    r1Initial = zeros(3,1); % Ground
+    r2Initial = [0.0; 0.0; 0.0]; % Wheel
+    r3Initial = [-3.75; -4.25; 4.25]; % Link1
+    r4Initial = [-5.75; -8.5; 3.25]; % Link2
+    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+    
+    % Initial orientation
+    % Ground
+    p1 = [1.0 0.0 0.0 0.0]';
+    
+    % Wheel
+    p2 = [1.0 0.0 0.0 0.0]';
+    
+    % Link1
+    p3 = [0.8806 -0.29 -0.27 -0.26]';
+    
+    % Link2
+    p4 =  [0.6072 -0.36 0.36 -0.61]';
+    
+    pInitial = [p1; p2; p3; p4];
+    
+    assemblyAnalysisFlag = 1;
+    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+    
+    % Initial velocities
+    % known = 2;
+    % knownInitialRDot = zeros(3,1);
+    % knownInitialOmegaBar = [2*pi; 0; 0];
+    % knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
+    
+    % sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+    sys.computeAndSetInitialVelocities([], [], []);
+    save('uniqueFourBarMechanismDynamicsAnalysis.mat','sys');
+end
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -202,7 +207,7 @@ plot(time,pointBPosition(3,:));
 legend('x','y','z')
 hold off
 
-%% Plot the position, velocity, and acceleration of the slider vs time
+%% Plot the position, velocity, and acceleration of the rocker vs time
 rockerPosition = sys.myBodies{4}.myRTotal;
 rockerVelocity = sys.myBodies{4}.myRDotTotal;
 rockerAccel = sys.myBodies{4}.myRDDotTotal;
@@ -216,7 +221,7 @@ plot(time,rockerPosition(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Position (m)')
-title('Slider')
+title('Rocker Position')
 hold off
 
 
@@ -228,7 +233,7 @@ plot(time,rockerVelocity(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Velocity (m/s)')
-title('Slider')
+title('Rocker Velocity')
 hold off
 
 
@@ -240,10 +245,8 @@ plot(time,rockerAccel(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Acceleration (m/s^2)')
-title('Slider')
+title('Rocker Acceleration')
 hold off
-
-
 
 %% Display torque at the revolute joint 
 % Extract torque for body 2 due to all constraints and time
@@ -282,3 +285,24 @@ ylabel(ax(2),'Theta (rad)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ','Theta')
 saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')
+
+%% Display the local reaction x force at the origin of the wheel
+force = sys.myBodies{2}.myConstraintForcesTotal;
+time = sys.myBodies{2}.myTimeTotal;
+
+% Compute the total force due to the revolute joint constraints
+revJointConsts = 1:5;
+reactionForceTotal = zeros(3,length(time));
+for iC = 1:length(revJointConsts);
+    reactionForceTotal = reactionForceTotal + force((3*iC-2):3*iC,:);
+end
+
+figure
+hold on
+plot(time, -1*reactionForceTotal(1,:))
+xlabel('Time (sec)')
+ylabel('Reaction Force (N)')
+title('Reaction Force in X-direction due to revolute joint b/w wheel and ground')
+axis([0 2.5 -200 40])
+hold off
+    

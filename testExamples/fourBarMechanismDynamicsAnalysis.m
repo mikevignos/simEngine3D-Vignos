@@ -1,6 +1,5 @@
-%% sliderCrankMechanism.m
-% Taken from ch. 12.3 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
-% Mechanical Systems (Allyn and Bacon, 1989)
+%% fourBarMechanismDynamicsAnalysis.m
+% Taken from http://lim.ii.udc.es/mbsbenchmark/dist/A02/A02_specification.xml
 % Used to test the combinaton of a revolute, universal, and spherical joint.  .
 clear; close all; clc;
 
@@ -13,33 +12,33 @@ mass1 = 1;
 length1 = 0;
 isGround1 = 1;
 JMatrix1 = eye(3,3);
-gravityDirection = '-z';
+gravityDirection = '-y';
 sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
-% Add body2. The is the wheel.
-length2 = 2.0; % meters. This is actually the radius of the wheel.
-mass2 = 2.0; % kg
+% Add body2. The is the first link.
+length2 = 1.0; % meters
+mass2 = 1.0; % kg
 
-% Define inertial properties of the wheel
-Jxx = 4.0;
-Jyy = 2.0;
-Jzz = 0.0;
+% Define inertial properties of the first link
+Jxx = mass2*(length2)^2/12;
+Jyy = 0.0;
+Jzz = mass2*(length2)^2/12;
 JMatrix2 = zeros(3,3);
 JMatrix2(1,1) = Jxx;
 JMatrix2(2,2) = Jyy;
 JMatrix2(3,3) = Jzz;
 
 isGround2 = 0;
-sys.addBody(2, 'wheel', isGround2, mass2, length2, JMatrix2, gravityDirection);
+sys.addBody(2, 'bar', isGround2, mass2, length2, JMatrix2, gravityDirection);
 
-% Add body3 to the system. This is the first link.
-length3 = 12.2; % meters
+% Add body3. The is the second link (horizontal link).
+length3 = 1.0; % meters
 mass3 = 1.0; % kg
 
-% Define inertial properties of the connecting rod
-Jxx = 12.4;
-Jyy = 0.01;
-Jzz = 0.0;
+% Define inertial properties of the first link
+Jxx = mass3*(length3)^2/12;
+Jyy = 0.0;
+Jzz = mass3*(length3)^2/12;
 JMatrix3 = zeros(3,3);
 JMatrix3(1,1) = Jxx;
 JMatrix3(2,2) = Jyy;
@@ -48,14 +47,14 @@ JMatrix3(3,3) = Jzz;
 isGround3 = 0;
 sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3, gravityDirection);
 
-% Add body4 to the system. This is second link.
-length4 = 7.4;
-mass4 = 1.0;
+% Add body4. The is the third link.
+length4 = 1.0; % meters
+mass4 = 1.0; % kg
 
-% Define inertial properties of body4
-Jxx = 4.54;
-Jyy = 0.01;
-Jzz = 0.0;
+% Define inertial properties of the first link
+Jxx = mass4*(length4)^2/12;
+Jyy = 0.0;
+Jzz = mass4*(length4)^2/12;
 JMatrix4 = zeros(3,3);
 JMatrix4(1,1) = Jxx;
 JMatrix4(2,2) = Jyy;
@@ -64,102 +63,98 @@ JMatrix4(3,3) = Jzz;
 isGround4 = 0;
 sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
-%% Define revolute joint between wheel and ground
+%% Define revolute joint between first link and ground
 a1.body1 = 1;
 a1.body2 = 2;
 a1.pointOnBody1 = [0 0 0]';
-a1.pointOnBody2 = [0 0 0]';
-a1.vector1OnBody1 = [0 1 0]';
-a1.vector2OnBody1 = [0 0 1]';
-a1.vectorOnBody2 = [1 0 0]';
-a1.constraintName = 'Revolute Joint b/w Ground and Wheel';
+a1.pointOnBody2 = [0 -0.5 0]';
+a1.vector1OnBody1 = [1 0 0]';
+a1.vector2OnBody1 = [0 1 0]';
+a1.vectorOnBody2 = [0 0 1]';
+a1.constraintName = 'Revolute joint b/w ground and first link';
 
 sys.addJoint('revolute',a1);
 
-%% Define universal joint between wheel and first link
-necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} ...
-                 {'pointOnBody2'} {'vectorOnBody1'} {'vectorOnBody2'}];
-            
+%% Define revolute joint between first link and second link
 a2.body1 = 2;
 a2.body2 = 3;
-a2.pointOnBody1 = [0.0 0.0 2.0]';
-a2.pointOnBody2 = [0.0 6.1 0.0]';
-a2.vectorOnBody1 = [0.75 -0.662 0.0]';
+a2.pointOnBody1 = [0 0.5 0]';
+a2.pointOnBody2 = [0 0.5 0]';
+a2.vector1OnBody1 = [1 0 0]';
+a2.vector2OnBody1 = [0 1 0]';
 a2.vectorOnBody2 = [0 0 1]';
-a2.constraintName = 'Universal joint b/w wheel and 1st link';
+a2.constraintName = 'Revolute joint b/w first and second links';
 
-sys.addJoint('universal',a2);
+sys.addJoint('revolute',a2);
 
-%% Define spherical joint between the links
+%% Define revolute joint between second link and third link
 a3.body1 = 3;
 a3.body2 = 4;
-a3.pointOnBody1 = [0.0 -6.1 0.0]';
-a3.pointOnBody2 = [0.0 -3.7 0.0]';  
-a3.constraintName = 'Spherical joint b/w links';
+a3.pointOnBody1 = [0 -0.5 0]';
+a3.pointOnBody2 = [0 0.5 0]';
+a3.vector1OnBody1 = [1 0 0]';
+a3.vector2OnBody1 = [0 1 0]';
+a3.vectorOnBody2 = [0 0 1]';
+a3.constraintName = 'Revolute joint b/w second and third links';
 
-sys.addJoint('spherical',a3);
+sys.addJoint('revolute',a3);
 
-%% Define revolute joint between second link and ground
+%% Define revolute joint between third link and ground
 a4.body1 = 1;
 a4.body2 = 4;
-a4.pointOnBody1 = [-4.0 -8.5 0.0]';
-a4.pointOnBody2 = [0.0 3.7 0.0]';
+a4.pointOnBody1 = [1 0 0]';
+a4.pointOnBody2 = [0 -0.5 0]';
 a4.vector1OnBody1 = [1 0 0]';
-a4.vector2OnBody1 = [0 0 1]';
-a4.vectorOnBody2 = [1 0 0]';
-a4.constraintName = 'Revolute joint b/w 2nd link and ground';
+a4.vector2OnBody1 = [0 1 0]';
+a4.vectorOnBody2 = [0 0 1]';
+a4.constraintName = 'Revolute joint b/w third link and ground';
 
 sys.addJoint('revolute',a4);
 
-%% Add driving constraint between wheel and ground
-a5.bodyJ = 1;
-a5.bodyI = 2;
-a5.aBarJ = [0 1 0]';
-a5.aBarI = [0 0 1]';
-a5.ft = @(t)cos(pi*t + pi/2);
-a5.ftDot = @(t)(pi*sin(pi*t + pi/2));
-a5.ftDDot = @(t)(pi^2*cos(pi*t + pi/2));
-a5.constraintName = 'DP1 driving constraint';
-isKinematic = 0;
-sys.addBasicConstraint(isKinematic,'dp1',a5);
-
 %% Set initial conditions of each body
-r1Initial = zeros(3,1); % Ground
-r2Initial = [0.0; 0.0; 0.0]; % Wheel
-r3Initial = [-3.75; -4.25; 4.25]; % Link1
-r4Initial = [-5.75; -8.5; 3.25]; % Link2
-rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-
-% Initial orientation
-% Ground
-p1 = [1.0 0.0 0.0 0.0]'; 
-
-% Wheel
-p2 = [1.0 0.0 0.0 0.0]';
-
-% Link1
-p3 = [0.8806 -0.29 -0.27 -0.26]';
-
-% Link2
-p4 =  [0.6072 -0.36 0.36 -0.61]';
-
-pInitial = [p1; p2; p3; p4];
-
-assemblyAnalysisFlag = 1;
-sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-
-% Initial velocities
-% known = 2;
-% knownInitialRDot = zeros(3,1);
-% knownInitialOmegaBar = [2*pi; 0; 0];
-% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
-
-% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-sys.computeAndSetInitialVelocities([], [], []);
-
-%% Plot starting configuration of system
-sys.plot(1);
-view([90 0])
+if exist('fourBarMechanismDynamicsAnalysis.mat')
+    load('fourBarMechanismDynamicsAnalysis.mat')
+else
+    r1Initial = zeros(3,1); % Ground
+    r2Initial = [0.0; 0.5; 0.0]; % Link1
+    r3Initial = [0.5; 1.0; 0.0]; % Link2
+    r4Initial = [1.0; 0.5; 0.0]; % Link3
+    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+    
+    % Initial orientation
+    % Ground
+    p1 = [1.0 0.0 0.0 0.0]';
+    
+    % Link1
+    p2 = [1.0 0.0 0.0 0.0]';
+    
+    % Link2
+    A3 = [0 -1 0;
+        1 0 0;
+        0 0 1];
+    p3 = simEngine3DUtilities.A2p(A3);
+    
+    % Link3
+    p4 =  [1 0 0 0]';
+    
+    pInitial = [p1; p2; p3; p4];
+    
+    assemblyAnalysisFlag = 1;
+    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+    
+    % Plot starting configuration of system
+    sys.plot(1);
+    
+    % Initial velocities
+    known = 2;
+    knownInitialRDot = [0.5 0 0]';
+    knownInitialOmegaBar = [1; 0; 0];
+    knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
+    
+    sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+%     sys.computeAndSetInitialVelocities([], [], []);
+%     save('fourBarMechanismDynamicsAnalysis.mat','sys');
+end
 
 %% Perform analysis
 if 1
@@ -202,7 +197,7 @@ plot(time,pointBPosition(3,:));
 legend('x','y','z')
 hold off
 
-%% Plot the position, velocity, and acceleration of the slider vs time
+%% Plot the position, velocity, and acceleration of the rocker vs time
 rockerPosition = sys.myBodies{4}.myRTotal;
 rockerVelocity = sys.myBodies{4}.myRDotTotal;
 rockerAccel = sys.myBodies{4}.myRDDotTotal;
@@ -216,7 +211,7 @@ plot(time,rockerPosition(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Position (m)')
-title('Slider')
+title('Rocker Position')
 hold off
 
 
@@ -228,7 +223,7 @@ plot(time,rockerVelocity(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Velocity (m/s)')
-title('Slider')
+title('Rocker Velocity')
 hold off
 
 
@@ -240,10 +235,8 @@ plot(time,rockerAccel(3,:))
 legend('x','y','z')
 xlabel('Time (sec)')
 ylabel('Acceleration (m/s^2)')
-title('Slider')
+title('Rocker Acceleration')
 hold off
-
-
 
 %% Display torque at the revolute joint 
 % Extract torque for body 2 due to all constraints and time
@@ -282,3 +275,24 @@ ylabel(ax(2),'Theta (rad)')
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ','Theta')
 saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')
+
+%% Display the local reaction x force at the origin of the wheel
+force = sys.myBodies{2}.myConstraintForcesTotal;
+time = sys.myBodies{2}.myTimeTotal;
+
+% Compute the total force due to the revolute joint constraints
+revJointConsts = 1:5;
+reactionForceTotal = zeros(3,length(time));
+for iC = 1:length(revJointConsts);
+    reactionForceTotal = reactionForceTotal + force((3*iC-2):3*iC,:);
+end
+
+figure
+hold on
+plot(time, -1*reactionForceTotal(1,:))
+xlabel('Time (sec)')
+ylabel('Reaction Force (N)')
+title('Reaction Force in X-direction due to revolute joint b/w wheel and ground')
+axis([0 2.5 -200 40])
+hold off
+    

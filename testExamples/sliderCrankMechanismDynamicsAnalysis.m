@@ -39,8 +39,8 @@ length3 = 0.3; % meters
 mass3 = 0.5; % kg
 
 % Define inertial properties of the connecting rod
-Jxx = 0.004;
-Jyy = 0.0004;
+Jxx = 0.0004;
+Jyy = 0.004;
 Jzz = 0.004;
 JMatrix3 = zeros(3,3);
 JMatrix3(1,1) = Jxx;
@@ -166,10 +166,10 @@ assemblyAnalysisFlag = 1;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
 
 % Initial velocities. Initial velocity known for crank.
-% known = 2;
-% knownInitialRDot = zeros(3,1);
-% knownInitialOmegaBar = [2*pi; 0; 0];
-% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
+known = 2;
+knownInitialRDot = zeros(3,1);
+knownInitialOmegaBar = [2*pi; 0; 0];
+knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
 
 % sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
 sys.computeAndSetInitialVelocities([], [], []);
