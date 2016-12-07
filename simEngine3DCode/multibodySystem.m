@@ -225,6 +225,16 @@ classdef multibodySystem < handle
             if (assemblyAnalysisFlag == 1)
                 obj.assemblyAnalysis();
             end
+            
+            % Check to make sure the system is not overconstrained. If it
+            % is, reduce the number of constraints and reperform the
+            % assembly analysis.
+            nConstTotal = obj.myNumConstraints + obj.myNumBodiesMinusGround;
+            if (nConstTotal > 7*obj.myNumBodiesMinusGround)
+                disp('System over-constrained. Attempting to remove redundant constraints.')
+                obj.removeRedundantConstraints();
+                obj.assemblyAnalysis();
+            end
         end
         function obj = computeAndSetInitialVelocities(obj, knownBodies, knownInitialRDot, knownInitialPDot)
             % Compute initial velocities for unknown bodies.
@@ -346,7 +356,7 @@ classdef multibodySystem < handle
                     unknownCount = unknownCount + 1;
                 end
             end
-                    
+            
             
             % Add in the ground if it is in the system
             if (obj.myBodyIsGround == 1)
@@ -360,10 +370,10 @@ classdef multibodySystem < handle
                 pDotInitial = velPTotal;
             end
             
-             % Update the system state to store these computed velocities.
-             time = 0;
-             obj.updateSystemState([], rDotInitial, [], [], pDotInitial, [], time);
-        end        
+            % Update the system state to store these computed velocities.
+            time = 0;
+            obj.updateSystemState([], rDotInitial, [], [], pDotInitial, [], time);
+        end
         function obj = removeRedundantConstraints(obj)
             % Remove redundant constraints from an over-constrained system.
             % A successful assembly analysis must have been performed prior
@@ -383,9 +393,117 @@ classdef multibodySystem < handle
             % Determine the rank of this Jacobian
             rankOfJacobian =  rank(phiKJacobian);
             
-            A = rref(phiKJacobian);
+            [L, U, p, q] = simEngine3DUtilities.lucp(phiKJacobian);
             
-            [L, U, P, Q] = simEngine3DUtilities.gecp(phiKJacobian);
+            % Find rows of upper triangular matrix that are all zeros.
+            [nRows,~] = size(U);
+            redundantConst = [];
+            for iR = 1:nRows
+                if ~(any(U(iR,:)) ~= 0)
+                    redundantConst = [redundantConst iR];
+                end
+            end
+            
+            % Perturb each of the generalized coordinates. Recompute the
+            % rows that are all zeros to make sure we found the correct
+            % rows.
+            %             rOriginal = obj.myR;
+            %             nBodies = obj.myNumBodies;
+            %             step = 10^-3;
+            %             for iB = 1:3*nBodies
+            %                 r = rOriginal;
+            %                 r(iB,1) = r(iB,1) + step;
+            %
+            %                 % Update system with the perturbed value of R
+            %                 obj.updateSystemState(r, [],[],[],[],[],0);
+            %
+            %                 % Reassemble the system
+            %                 obj.assemblyAnalysis();
+            %
+            %                 % Recompute the Jacobian
+            %                 nKinematicConst = obj.myNumKinematicConstraints;
+            %                 obj.computePhiPartialR();
+            %                 phiPartialR = obj.myPhiPartialR(1:nKinematicConst,:);
+            %
+            %                 obj.computePhiPartialP();
+            %                 phiPartialP = obj.myPhiPartialP(1:nKinematicConst,:);
+            %
+            %                 phiKJacobian = [phiPartialR phiPartialP];
+            %
+            %                 % Reperform factorization
+            %                 [L, U, p, q] = simEngine3DUtilities.lucp(phiKJacobian);
+            %
+            %                 % Check to see if less rows are now all zeros. If that
+            %                 % is the case the initial position is just a unique
+            %                 % singular case and we should not remove all those
+            %                 % constraints
+            %                 [nRows,~] = size(U);
+            %                 redundantConstNew = [];
+            %                 for iR = 1:nRows
+            %                     if ~(any(U(iR,:)) ~= 0)
+            %                         redundantConstNew = [redundantConstNew iR];
+            %                     end
+            %                 end
+            %                 if (length(redundantConstNew) < length(redundantConst))
+            %                     redundantConst = redundantConstNew;
+            %                 end
+            %             end
+            %
+            %             % Reset the initial position
+            %             obj.updateSystemState(rOriginal,[],[],[],[],[],0);
+            %
+            %             pOriginal = obj.myP;
+            %             step = 10^-3;
+            %             for iB = 1:4*nBodies
+            %                 p = pOriginal;
+            %                 p(iB,1) = p(iB,1) + step;
+            %
+            %                 % Update system with the perturbed value of R
+            %                 obj.updateSystemState([], [],[],p,[],[],0);
+            %
+            %                 % Reassemble the system
+            %                 obj.assemblyAnalysis();
+            %
+            %                 % Recompute the Jacobian
+            %                 nKinematicConst = obj.myNumKinematicConstraints;
+            %                 obj.computePhiPartialR();
+            %                 phiPartialR = obj.myPhiPartialR(1:nKinematicConst,:);
+            %
+            %                 obj.computePhiPartialP();
+            %                 phiPartialP = obj.myPhiPartialP(1:nKinematicConst,:);
+            %
+            %                 phiKJacobian = [phiPartialR phiPartialP];
+            %
+            %                 % Reperform factorization
+            %                 [L, U, p, q] = simEngine3DUtilities.lucp(phiKJacobian);
+            %
+            %                 % Check to see if less rows are now all zeros. If that
+            %                 % is the case the initial position is just a unique
+            %                 % singular case and we should not remove all those
+            %                 % constraints
+            %                 [nRows,~] = size(U);
+            %                 redundantConstNew = [];
+            %                 for iR = 1:nRows
+            %                     if ~(any(U(iR,:)) ~= 0)
+            %                         redundantConstNew = [redundantConstNew iR];
+            %                     end
+            %                 end
+            %                 if (length(redundantConstNew) < length(redundantConst))
+            %                     redundantConst = redundantConstNew;
+            %                 end
+            %             end
+            %
+            %             % Reset the initial position
+            %             obj.updateSystemState([],[],[],pOriginal,[],[],0);
+            
+            % Remove the constraints that were found to be redundant.
+            constVec = 1:obj.myNumConstraints;
+            constToKeep = setdiff(constVec,redundantConst);
+            for iC = 1:length(constToKeep)
+                myConstraintsUpdated{iC} = obj.myConstraints{constToKeep(iC)};
+            end
+            obj.myConstraints = myConstraintsUpdated;
+            obj.myNumKinematicConstraints =  obj.myNumKinematicConstraints  - length(constToKeep);
             
         end
         function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, iterationMethod, displayFlag)
