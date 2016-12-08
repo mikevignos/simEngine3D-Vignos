@@ -3041,8 +3041,8 @@ classdef multibodySystem < handle
             %   connected to the revolute joint.
             %   body2 = second body in joint. This is the body directly
             %   connected to the cylindrical joint.
-            %   pointOnBody1 = 3D location of the point on body1 used to define the
-            %   vector for the b2 constraint in this joint.
+            %   pointOnBody1 = 3D location of the point on body1 along the
+            %   translation axis of this joint.
             %   pointOnBody2 = 3D location of the point on body2 used to define the
             %   vector for the b2 constraint in this joint.
             %   vectorOnBody1 = Vector on body1 used to define the

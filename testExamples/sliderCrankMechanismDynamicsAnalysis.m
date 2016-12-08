@@ -141,16 +141,16 @@ sys.addJoint('revolute-cylindrical',a3);
 
 %% Add driving constraint to model
 % DP1 constraint between -Z and y'
-% a6.bodyJ = 1;
-% a6.bodyI = 2;
-% a6.aBarJ = [0 1 0]';
-% a6.aBarI = [0 1 0]';
-% a6.ft = @(t)cos(-2*pi*t + pi/2);
-% a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2));
-% a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2));
-% a6.constraintName = 'DP1 driving constraint';
-% isKinematic = 0;
-% sys.addBasicConstraint(isKinematic,'dp1',a6);
+a6.bodyJ = 1;
+a6.bodyI = 2;
+a6.aBarJ = [0 1 0]';
+a6.aBarI = [0 1 0]';
+a6.ft = @(t)cos(-2*pi*t + pi/2 + 0.0001);
+a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2 + 0.0001));
+a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2 + 0.0001));
+a6.constraintName = 'DP1 driving constraint';
+isKinematic = 0;
+sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Set initial conditions of each body
 % if exist('sliderCrankMechanismDynamicsAnalysis.mat')
@@ -190,8 +190,8 @@ rInitial = [r1Initial; r2Initial; r3Initial];
     knownInitialOmegaBar = [2*pi; 0; 0];
     knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
     
-    sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-%     sys.computeAndSetInitialVelocities([], [], []);
+%     sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+    sys.computeAndSetInitialVelocities([], [], []);
 %     save('sliderCrankMechanismDynamicsAnalysis.mat','sys');
 % end
 
@@ -203,7 +203,7 @@ view([90 0])
 if 1
     timeStart = 0;
     timeEnd = 1;
-    timeStep = 10^-2;
+    timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
     method = 'quasiNewton';
@@ -220,46 +220,46 @@ end
 disp(['Analysis for sliderCrankMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
 
 %% Plot the position, velocity, and acceleration of the slider vs time
-sliderPosition = sys.myBodies{4}.myRTotal;
-sliderVelocity = sys.myBodies{4}.myRDotTotal;
-sliderAccel = sys.myBodies{4}.myRDDotTotal;
-time = sys.myBodies{4}.myTimeTotal;
-
-figure
-subplot(3,1,1)
-hold on
-plot(time,sliderPosition(1,:))
-plot(time,sliderPosition(2,:))
-plot(time,sliderPosition(3,:))
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Position (m)')
-title('Slider')
-hold off
-
-
-subplot(3,1,2)
-hold on
-plot(time,sliderVelocity(1,:))
-plot(time,sliderVelocity(2,:))
-plot(time,sliderVelocity(3,:))
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-title('Slider')
-hold off
-
-
-subplot(3,1,3)
-hold on
-plot(time,sliderAccel(1,:))
-plot(time,sliderAccel(2,:))
-plot(time,sliderAccel(3,:))
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-title('Slider')
-hold off
+% sliderPosition = sys.myBodies{4}.myRTotal;
+% sliderVelocity = sys.myBodies{4}.myRDotTotal;
+% sliderAccel = sys.myBodies{4}.myRDDotTotal;
+% time = sys.myBodies{4}.myTimeTotal;
+% 
+% figure
+% subplot(3,1,1)
+% hold on
+% plot(time,sliderPosition(1,:))
+% plot(time,sliderPosition(2,:))
+% plot(time,sliderPosition(3,:))
+% legend('x','y','z')
+% xlabel('Time (sec)')
+% ylabel('Position (m)')
+% title('Slider')
+% hold off
+% 
+% 
+% subplot(3,1,2)
+% hold on
+% plot(time,sliderVelocity(1,:))
+% plot(time,sliderVelocity(2,:))
+% plot(time,sliderVelocity(3,:))
+% legend('x','y','z')
+% xlabel('Time (sec)')
+% ylabel('Velocity (m/s)')
+% title('Slider')
+% hold off
+% 
+% 
+% subplot(3,1,3)
+% hold on
+% plot(time,sliderAccel(1,:))
+% plot(time,sliderAccel(2,:))
+% plot(time,sliderAccel(3,:))
+% legend('x','y','z')
+% xlabel('Time (sec)')
+% ylabel('Acceleration (m/s^2)')
+% title('Slider')
+% hold off
 
 %% Plot the position of point B versus time
 crankOrientation = sys.myBodies{2}.myPTotal;
@@ -288,7 +288,7 @@ pointCPosition = zeros(3,length(time));
 sC = [0.15 0.0 0]';
 for iT = 1:length(time)
     A = simEngine3DUtilities.p2A(barOrientation(:,iT));
-    pointCPosition(:,iT) = barPosition(:,iT) + A*sB;
+    pointCPosition(:,iT) = barPosition(:,iT) + A*sC;
 end
 
 figure
@@ -297,6 +297,7 @@ plot(time,pointCPosition(1,:));
 plot(time,pointCPosition(2,:));
 plot(time,pointCPosition(3,:));
 legend('x','y','z')
+title('Point C Position')
 hold off
 
 
