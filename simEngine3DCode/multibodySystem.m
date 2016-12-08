@@ -506,7 +506,7 @@ classdef multibodySystem < handle
             obj.myNumKinematicConstraints =  obj.myNumKinematicConstraints  - length(constToKeep);
             
         end
-        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, iterationMethod, displayFlag)
+        function obj = dynamicsAnalysis(obj, startTime, endTime, timestep, order, iterationMethod, displayFlag, velocityConstraintViolationFlag)
             % Perform a dynamics analysis.
             %
             % Function inputs:
@@ -532,6 +532,11 @@ classdef multibodySystem < handle
             % displayFlag : int
             %   Flag for user to indicate if they want to display when each
             %   time step of analysis has been completed.
+            %
+            % velocityConstraintViolationFlag : int (1 or 0)
+            %   Flag for user to indicate if they want to compute the
+            %   velocity constraint violation at each timestep of the
+            %   dynamics analysis
             
             % Check to make sure the system is not overconstrained.
             nConstTotal = obj.myNumConstraints + obj.myNumBodiesMinusGround;
@@ -622,7 +627,9 @@ classdef multibodySystem < handle
                 % need to recompute phiPartialR and phiPartialP within this
                 % function because we computed them to compute the
                 % constraint forces and the constraint torques.
-                obj.computeVelocityConstraintViolation(iT);
+                if (velocityConstraintViolationFlag == 1)
+                    obj.computeVelocityConstraintViolation(iT);
+                end
                 
                 if (displayFlag == 1)
                     disp(['Dynamics analysis completed for t = ' num2str(t) ' sec.']);
@@ -3224,9 +3231,10 @@ classdef multibodySystem < handle
             %   pointOnBody1 = 3D location of a point along the translational axis of body1
             %   pointOnBody2 = 3D location of a point along the translational axis of body2
             %   vector1OnBody1 = 1st vector to define the plane of the
-            %   cylindrical joint on body1
+            %   translational joint on body1
             %   vector2OnBody1 = 2nd vector to define the plane of the
-            %   cylindrical joint on body1.
+            %   translational joint on body1. This is orthogonal to
+            %   vector1OnBody1.
             %   vector1OnBody2 = Vector on body2 that is orthogonal to the
             %   plane on body1.
             %   vector2OnBody2 = Vector on body2 that is parallel to the

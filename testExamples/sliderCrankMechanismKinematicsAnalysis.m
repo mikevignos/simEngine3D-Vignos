@@ -52,20 +52,28 @@ isGround3 = 0;
 sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3, gravityDirection);
 
 % Add the slider (body4) to the mechanism.
-% length4 = 0.0173; % The length of the slider does not matter so this is an arbitrary length.
-% mass4 = 2.0;
-% 
-% % Define inertial properties of the slider
-% Jxx = 0.0001;
-% Jyy = 0.0001;
-% Jzz = 0.0001;
-% JMatrix4 = zeros(3,3);
-% JMatrix4(1,1) = Jxx;
-% JMatrix4(2,2) = Jyy;
-% JMatrix4(3,3) = Jzz;
-% 
-% isGround4 = 0;
-% sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4, gravityDirection);
+length4 = 0.0173; % The length of the slider does not matter so this is an arbitrary length.
+mass4 = 2.0;
+
+% Define inertial properties of the slider
+Jxx = 0.0001;
+Jyy = 0.0001;
+Jzz = 0.0001;
+JMatrix4 = zeros(3,3);
+JMatrix4(1,1) = Jxx;
+JMatrix4(2,2) = Jyy;
+JMatrix4(3,3) = Jzz;
+
+isGround4 = 0;
+sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4, gravityDirection);
+
+%% Define important points and vectors in the system
+sys.addPoint(2, [0 0.04 0]', 'B');
+sys.addPoint(2, [0 -0.04 0]', 'revJoint');
+sys.addPoint(3, [0.15 0 0]', 'C');
+sys.addPoint(3, [-0.15 0 0]', 'B');
+sys.addPoint(4, [0.0173/2 0 0]','D');
+sys.addPoint(4, [-0.0173/2 0 0]','-D');
 
 %% Define revolute joint between crank and ground
 a1.body1 = 1;
@@ -114,29 +122,29 @@ a3.constraintName = 'Rev-cylindrical joint b/w connector and ground';
 sys.addJoint('revolute-cylindrical',a3);
 
 %% Define translation joint between slider and ground
-% a4.body1 = 1;
-% a4.body2 = 4;
-% a4.pointOnBody1 = [2 0 0]';
-% a4.pointOnBody2 = [0.1 0 0]';
-% a4.vector1OnBody1 = [0 1 0]';
-% a4.vector2OnBody1 = [0 0 1]';
-% a4.vector1OnBody2 = [1 0 0]';
-% a4.vector2OnBody2 = [0 0 1]';
-% a4.constraintName = 'Translation joint b/w slider and ground';
-% 
-% sys.addJoint('translational',a4);
+a4.body1 = 1;
+a4.body2 = 4;
+a4.pointOnBody1 = [2 0 0]';
+a4.pointOnBody2 = [0.1 0 0]';
+a4.vector1OnBody1 = [0 1 0]';
+a4.vector2OnBody1 = [0 0 1]';
+a4.vector1OnBody2 = [1 0 0]';
+a4.vector2OnBody2 = [0 0 1]';
+a4.constraintName = 'Translation joint b/w slider and ground';
+
+sys.addJoint('translational',a4);
 
 %% Define distance constraint between connector and slider
-% a5.bodyI = 3;
-% a5.bodyJ = 4;
-% a5.sBarIP = [0.15 0 0]';
-% a5.sBarJQ = [0 0 0]';
-% a5.ft = @(t)0;
-% a5.ftDot =  @(t)0;
-% a5.ftDDot =  @(t)0;
-% a5.constraintName = 'Distance constraint b/w connector and slider';
-% isKinematic = 1;
-% sys.addBasicConstraint(isKinematic,'d',a5);
+a5.bodyI = 3;
+a5.bodyJ = 4;
+a5.sBarIP = [0.15 0 0]';
+a5.sBarJQ = [0 0 0]';
+a5.ft = @(t)0;
+a5.ftDot =  @(t)0;
+a5.ftDDot =  @(t)0;
+a5.constraintName = 'Distance constraint b/w connector and slider';
+isKinematic = 1;
+sys.addBasicConstraint(isKinematic,'d',a5);
 
 
 %% Add driving constraint to model
@@ -145,9 +153,9 @@ a6.bodyJ = 1;
 a6.bodyI = 2;
 a6.aBarJ = [0 1 0]';
 a6.aBarI = [0 1 0]';
-a6.ft = @(t)cos(-2*pi*t + pi/2);
-a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2));
-a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2));
+a6.ft = @(t)cos(-2*pi*t + pi/2 + 0.0001);
+a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2 + 0.0001));
+a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2 + 0.0001));
 a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
@@ -159,9 +167,9 @@ sys.addBasicConstraint(isKinematic,'dp1',a6);
     r1Initial = zeros(3,1); % Ground
     r2Initial = [0.0; 0.1; 0.12]; % Crank
     r3Initial = [0.1; 0.05; 0.1]; % Connector
-%     r4Initial = [0.2; 0.0; 0.0]; % Slider.
-%     rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-rInitial = [r1Initial; r2Initial; r3Initial];
+    r4Initial = [0.2; 0.0; 0.0]; % Slider.
+    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+% rInitial = [r1Initial; r2Initial; r3Initial];
     
     % Initial orientation
     % Ground
@@ -174,10 +182,10 @@ rInitial = [r1Initial; r2Initial; r3Initial];
     p3 = [0.8865 -0.21 0.4 -0.1]';
     
     % Slider
-%     p4 =  [1.0 0.0 0.0 0.0]';
+    p4 =  [1.0 0.0 0.0 0.0]';
     
-%     pInitial = [p1; p2; p3; p4];
- pInitial = [p1; p2; p3];
+    pInitial = [p1; p2; p3; p4];
+%  pInitial = [p1; p2; p3];
     
     t = 0;
     assemblyAnalysisFlag = 1;
@@ -219,47 +227,50 @@ end
 
 disp(['Analysis for sliderCrankMechanism took ' num2str(analysisTime) ' seconds.'])
 
+%% Animate results
+plot.animateSystem(sys,[90,0])
+
 %% Plot the position, velocity, and acceleration of the slider vs time
-% sliderPosition = sys.myBodies{4}.myRTotal;
-% sliderVelocity = sys.myBodies{4}.myRDotTotal;
-% sliderAccel = sys.myBodies{4}.myRDDotTotal;
-% time = sys.myBodies{4}.myTimeTotal;
-% 
-% figure
-% subplot(3,1,1)
-% hold on
-% plot(time,sliderPosition(1,:))
-% plot(time,sliderPosition(2,:))
-% plot(time,sliderPosition(3,:))
-% legend('x','y','z')
-% xlabel('Time (sec)')
-% ylabel('Position (m)')
-% title('Slider')
-% hold off
-% 
-% 
-% subplot(3,1,2)
-% hold on
-% plot(time,sliderVelocity(1,:))
-% plot(time,sliderVelocity(2,:))
-% plot(time,sliderVelocity(3,:))
-% legend('x','y','z')
-% xlabel('Time (sec)')
-% ylabel('Velocity (m/s)')
-% title('Slider')
-% hold off
-% 
-% 
-% subplot(3,1,3)
-% hold on
-% plot(time,sliderAccel(1,:))
-% plot(time,sliderAccel(2,:))
-% plot(time,sliderAccel(3,:))
-% legend('x','y','z')
-% xlabel('Time (sec)')
-% ylabel('Acceleration (m/s^2)')
-% title('Slider')
-% hold off
+sliderPosition = sys.myBodies{4}.myRTotal;
+sliderVelocity = sys.myBodies{4}.myRDotTotal;
+sliderAccel = sys.myBodies{4}.myRDDotTotal;
+time = sys.myBodies{4}.myTimeTotal;
+
+figure
+subplot(3,1,1)
+hold on
+plot(time,sliderPosition(1,:))
+plot(time,sliderPosition(2,:))
+plot(time,sliderPosition(3,:))
+legend('x','y','z')
+xlabel('Time (sec)')
+ylabel('Position (m)')
+title('Slider')
+hold off
+
+
+subplot(3,1,2)
+hold on
+plot(time,sliderVelocity(1,:))
+plot(time,sliderVelocity(2,:))
+plot(time,sliderVelocity(3,:))
+legend('x','y','z')
+xlabel('Time (sec)')
+ylabel('Velocity (m/s)')
+title('Slider')
+hold off
+
+
+subplot(3,1,3)
+hold on
+plot(time,sliderAccel(1,:))
+plot(time,sliderAccel(2,:))
+plot(time,sliderAccel(3,:))
+legend('x','y','z')
+xlabel('Time (sec)')
+ylabel('Acceleration (m/s^2)')
+title('Slider')
+hold off
 
 %% Plot the position of point B versus time
 crankOrientation = sys.myBodies{2}.myPTotal;

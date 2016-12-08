@@ -64,6 +64,14 @@ JMatrix4(3,3) = Jzz;
 isGround4 = 0;
 sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
+%% Define points on bodies
+sys.addPoint(2,[0 0 0]','A');
+sys.addPoint(2,[0 0 2]','B');
+sys.addPoint(3,[0 6.1 0]','B');
+sys.addPoint(3,[0 -6.1 0]','C');
+sys.addPoint(4,[0 -3.7 0]','C');
+sys.addPoint(4,[0 3.7 0]','D');
+
 %% Define revolute joint between wheel and ground
 a1.body1 = 1;
 a1.body2 = 2;
@@ -177,6 +185,9 @@ else
 end
 
 disp(['Inverse Dynamics Analysis for uniqueFourBarMechanism took ' num2str(analysisTime) ' seconds.'])
+
+%% Animate results
+plot.animateSystem(sys,[90,0])
 
 %% Plot the position of point B versus time
 wheelOrientation = sys.myBodies{2}.myPTotal;

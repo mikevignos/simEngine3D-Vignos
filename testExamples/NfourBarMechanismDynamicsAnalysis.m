@@ -7,7 +7,7 @@ clear; close all; clc;
 sys = multibodySystem();
 
 %% Define parameters for the N 4-bar mechanism system
-num4bar = 3; % Number of 4 bar mechanisms
+num4bar = 5; % Number of 4 bar mechanisms
 L = 1; % m. Length of each link
 mass = 1; % kg. Mass of each link.
 v0 = 1; % m/s. Initial velocity of point B0
@@ -33,6 +33,12 @@ sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 isGround = 0;
 for iB = 1:(2*num4bar + 1)
     sys.addBody((iB+1), 'bar', isGround, mass, L, JMatrix, gravityDirection);
+end
+
+%% Add points to the bodies
+for iB = 1:(2*num4bar + 1)
+    sys.addPoint((iB+1),[0 0.5 0]','P1');
+    sys.addPoint((iB+1),[0 -0.5 0]','P2');
 end
 
 %% Define revolute joint between each horizontal link and its neighboring link to the left
@@ -99,52 +105,46 @@ for iB = 2:2:(2*num4bar + 2)
 end
 
 %% Set inital position and orientation for all bodies
-% if exist('NfourBarMechanismDynamicsAnalysis.mat')
-%     load('NfourBarMechanismDynamicsAnalysis.mat')
-% else
-    rInitial = zeros(3,(2*num4bar + 2));
-    
-    pInitial =zeros(4,(2*num4bar + 2));
-    pInitial(:,1) = [1 0 0 0]';
-    pVert = [1 0 0 0]';
-    Ahorz = [0 -1 0;
-        1 0 0;
-        0 0 1];
-    pHorz = simEngine3DUtilities.A2p(Ahorz);
-    
-    count = 1;
-    for iB = 2:(2*num4bar + 2)
-        if (mod(iB,2) == 1) % Odd number
-            xPos = (iB - 2)*L/2;
-            yPos = L;
-            zPos = 0;
-            pTemp = pHorz(:);
-            
-        else % Even number
-            
-            xPos = iB - (count + 1);
-            yPos = L/2;
-            zPos = 0;
-            pTemp = pVert(:);
-            
-            count = count + 1;
-        end
-        rInitial(:,iB) = [xPos yPos zPos]';
-        pInitial(:,iB) = pTemp;
+rInitial = zeros(3,(2*num4bar + 2));
+
+pInitial =zeros(4,(2*num4bar + 2));
+pInitial(:,1) = [1 0 0 0]';
+pVert = [1 0 0 0]';
+Ahorz = [0 -1 0;
+    1 0 0;
+    0 0 1];
+pHorz = simEngine3DUtilities.A2p(Ahorz);
+
+count = 1;
+for iB = 2:(2*num4bar + 2)
+    if (mod(iB,2) == 1) % Odd number
+        xPos = (iB - 2)*L/2;
+        yPos = L;
+        zPos = 0;
+        pTemp = pHorz(:);
+        
+    else % Even number
+        
+        xPos = iB - (count + 1);
+        yPos = L/2;
+        zPos = 0;
+        pTemp = pVert(:);
+        
+        count = count + 1;
     end
-    nBodies = (2*num4bar + 2);
-    rInitial = reshape(rInitial,[3*nBodies,1]);
-    pInitial = reshape(pInitial,[4*nBodies,1]);
-    
-    assemblyAnalysisFlag = 1;
-    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-    
-%     save('NfourBarMechanismDynamicsAnalysis.mat','sys')
-% end
+    rInitial(:,iB) = [xPos yPos zPos]';
+    pInitial(:,iB) = pTemp;
+end
+nBodies = (2*num4bar + 2);
+rInitial = reshape(rInitial,[3*nBodies,1]);
+pInitial = reshape(pInitial,[4*nBodies,1]);
+
+assemblyAnalysisFlag = 1;
+sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
 
 % Plot starting configuration of system
 sys.plot(1);
-    
+
 %% Set inital velocities for all bodies
 known = 2;
 knownInitialRDot = [v0/2 0 0]';
@@ -160,11 +160,10 @@ if 1
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
+    velocityConstraintViolationFlag = 0;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     analysisTime = toc;
     save('NfourBarMechanismDynamicsAnalysis.mat','sys');
 else
@@ -172,6 +171,9 @@ else
 end
 
 disp(['Dynamics Analysis for NfourBarMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
+
+%% Animate the results
+plot.animateSystem(sys,[0,90])
 
 %% Plot the position of point B0 versus time
 linkOrientation = sys.myBodies{2}.myPTotal;

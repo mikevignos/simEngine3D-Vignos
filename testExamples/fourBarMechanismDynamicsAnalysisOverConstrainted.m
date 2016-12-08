@@ -63,6 +63,15 @@ JMatrix4(3,3) = Jzz;
 isGround4 = 0;
 sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
+%% Add points to the bodies
+sys.addPoint(2,[0 0.5 0]','B0');
+sys.addPoint(2,[0 -0.5 0]','A0');
+sys.addPoint(3,[0 0.5 0]','B0');
+sys.addPoint(3,[0 -0.5 0]','B1');
+sys.addPoint(4,[0 0.5 0]','B1');
+sys.addPoint(4,[0 -0.5 0]','B1');
+
+
 %% Define revolute joint between first link and ground
 a1.body1 = 1;
 a1.body2 = 2;
@@ -112,49 +121,43 @@ a4.constraintName = 'Revolute joint b/w third link and ground';
 sys.addJoint('revolute',a4);
 
 %% Set initial conditions of each body
-if exist('fourBarMechanismDynamicsAnalysisOverConstrained.mat')
-    load('fourBarMechanismDynamicsAnalysisOverConstrained.mat')
-else
-    r1Initial = zeros(3,1); % Ground
-    r2Initial = [0.0; 0.5; 0.0]; % Link1
-    r3Initial = [0.5; 1.0; 0.0]; % Link2
-    r4Initial = [1.0; 0.5; 0.0]; % Link3
-    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-    
-    % Initial orientation
-    % Ground
-    p1 = [1.0 0.0 0.0 0.0]';
-    
-    % Link1
-    p2 = [1.0 0.0 0.0 0.0]';
-    
-    % Link2
-    A3 = [0 -1 0;
-        1 0 0;
-        0 0 1];
-    p3 = simEngine3DUtilities.A2p(A3);
-    
-    % Link3
-    p4 =  [1 0 0 0]';
-    
-    pInitial = [p1; p2; p3; p4];
-    
-    assemblyAnalysisFlag = 1;
-    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-    
-    % Plot starting configuration of system
-    sys.plot(1);
-    
-    % Initial velocities
-    known = 2;
-    knownInitialRDot = [0.5 0 0]';
-    knownInitialOmegaBar = [0; 0; -1];
-    knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
-    
-    sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-%     sys.computeAndSetInitialVelocities([], [], []);
-%     save('fourBarMechanismDynamicsAnalysis.mat','sys');
-end
+r1Initial = zeros(3,1); % Ground
+r2Initial = [0.0; 0.5; 0.0]; % Link1
+r3Initial = [0.5; 1.0; 0.0]; % Link2
+r4Initial = [1.0; 0.5; 0.0]; % Link3
+rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+
+% Initial orientation
+% Ground
+p1 = [1.0 0.0 0.0 0.0]';
+
+% Link1
+p2 = [1.0 0.0 0.0 0.0]';
+
+% Link2
+A3 = [0 -1 0;
+    1 0 0;
+    0 0 1];
+p3 = simEngine3DUtilities.A2p(A3);
+
+% Link3
+p4 =  [1 0 0 0]';
+
+pInitial = [p1; p2; p3; p4];
+
+assemblyAnalysisFlag = 1;
+sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+
+% Plot starting configuration of system
+sys.plot(1);
+
+% Initial velocities
+known = 2;
+knownInitialRDot = [0.5 0 0]';
+knownInitialOmegaBar = [0; 0; -1];
+knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
+
+sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
 
 %% Perform analysis
 if 1
@@ -165,8 +168,6 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
     save('fourBarMechanismDynamicsAnalysisOverConstrained.mat','sys');
@@ -175,6 +176,9 @@ else
 end
 
 disp(['Inverse Dynamics Analysis for fourBarMechanismDynamicsAnalysisOverConstrained took ' num2str(analysisTime) ' seconds.'])
+
+%% Animate system
+plot.animateSystem(sys,[0,90])
 
 %% Plot the position of point B0 versus time
 linkOrientation = sys.myBodies{2}.myPTotal;

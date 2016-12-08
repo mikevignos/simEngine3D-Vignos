@@ -64,6 +64,14 @@ JMatrix4(3,3) = Jzz;
 isGround4 = 0;
 sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
+%% Define points on bodies
+sys.addPoint(2,[0 0 0]','A');
+sys.addPoint(2,[0 0 2]','B');
+sys.addPoint(3,[0 6.1 0]','B');
+sys.addPoint(3,[0 -6.1 0]','C');
+sys.addPoint(4,[0 -3.7 0]','C');
+sys.addPoint(4,[0 3.7 0]','D');
+
 %% Define revolute joint between wheel and ground
 a1.body1 = 1;
 a1.body2 = 2;
@@ -76,10 +84,7 @@ a1.constraintName = 'Revolute Joint b/w Ground and Wheel';
 
 sys.addJoint('revolute',a1);
 
-%% Define universal joint between wheel and first link
-necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} ...
-                 {'pointOnBody2'} {'vectorOnBody1'} {'vectorOnBody2'}];
-            
+%% Define universal joint between wheel and first link           
 a2.body1 = 2;
 a2.body2 = 3;
 a2.pointOnBody1 = [0.0 0.0 2.0]';
@@ -116,9 +121,9 @@ a5.bodyJ = 1;
 a5.bodyI = 2;
 a5.aBarJ = [0 1 0]';
 a5.aBarI = [0 0 1]';
-a5.ft = @(t)cos(pi*t + pi/2);
-a5.ftDot = @(t)(pi*sin(pi*t + pi/2));
-a5.ftDDot = @(t)(pi^2*cos(pi*t + pi/2));
+a5.ft = @(t)cos(pi*t + pi/2 + 0.0001);
+a5.ftDot = @(t)(pi*sin(pi*t + pi/2 + 0.0001));
+a5.ftDDot = @(t)(pi^2*cos(pi*t + pi/2 + 0.0001));
 a5.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a5);
@@ -150,17 +155,16 @@ else
     
     assemblyAnalysisFlag = 1;
     sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-    
-    % Initial velocities
-    % known = 2;
-    % knownInitialRDot = zeros(3,1);
-    % knownInitialOmegaBar = [2*pi; 0; 0];
-    % knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
-    
-    % sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-    sys.computeAndSetInitialVelocities([], [], []);
     save('uniqueFourBarMechanismDynamicsAnalysis.mat','sys');
 end
+% Initial velocities
+% known = 2;
+% knownInitialRDot = zeros(3,1);
+% knownInitialOmegaBar = [2*pi; 0; 0];
+% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
+
+% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+sys.computeAndSetInitialVelocities([], [], []);
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -185,6 +189,9 @@ else
 end
 
 disp(['Inverse Dynamics Analysis for uniqueFourBarMechanism took ' num2str(analysisTime) ' seconds.'])
+
+%% Animate results
+plot.animateSystem(sys,[90,0])
 
 %% Plot the position of point B versus time
 wheelOrientation = sys.myBodies{2}.myPTotal;

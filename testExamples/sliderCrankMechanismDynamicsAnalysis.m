@@ -67,6 +67,12 @@ sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3, gravityDirection);
 % isGround4 = 0;
 % sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
+%% Define important points and vectors in the system
+sys.addPoint(2, [0 0.04 0]', 'B');
+sys.addPoint(2, [0 -0.04 0]', 'revJoint');
+sys.addPoint(3, [0.15 0 0]', 'C');
+sys.addPoint(3, [-0.15 0 0]', 'B');
+
 %% Define revolute joint between crank and ground
 a1.body1 = 1;
 a1.body2 = 2;
@@ -218,6 +224,9 @@ else
 end
 
 disp(['Analysis for sliderCrankMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
+
+%% Animate results
+plot.animateSystem(sys,[90,0])
 
 %% Plot the position, velocity, and acceleration of the slider vs time
 % sliderPosition = sys.myBodies{4}.myRTotal;
