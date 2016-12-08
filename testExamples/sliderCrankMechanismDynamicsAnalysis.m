@@ -18,7 +18,8 @@ gravityDirection = '-z';
 sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
 % Add body2. The is the crank
-length2 = 0.08; % meters
+length2 = 0.08; % meters.
+% length2 = 0.16; % meters.
 mass2 = 0.12; % kg
 
 % Define inertial properties of the crank
@@ -51,26 +52,26 @@ isGround3 = 0;
 sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3, gravityDirection);
 
 % Add the slider (body4) to the mechanism.
-length4 = 0.05; % The length of the slider does not matter so this is an arbitrary length.
-mass4 = 2.0;
-
-% Define inertial properties of the slider
-Jxx = 0.0001;
-Jyy = 0.0001;
-Jzz = 0.0001;
-JMatrix4 = zeros(3,3);
-JMatrix4(1,1) = Jxx;
-JMatrix4(2,2) = Jyy;
-JMatrix4(3,3) = Jzz;
-
-isGround4 = 0;
-sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4, gravityDirection);
+% length4 = 0.0173; % The length of the slider does not matter so this is an arbitrary length.
+% mass4 = 2.0;
+% 
+% % Define inertial properties of the slider
+% Jxx = 0.0001;
+% Jyy = 0.0001;
+% Jzz = 0.0001;
+% JMatrix4 = zeros(3,3);
+% JMatrix4(1,1) = Jxx;
+% JMatrix4(2,2) = Jyy;
+% JMatrix4(3,3) = Jzz;
+% 
+% isGround4 = 0;
+% sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
 %% Define revolute joint between crank and ground
 a1.body1 = 1;
 a1.body2 = 2;
 a1.pointOnBody1 = [0 0.1 0.12]';
-a1.pointOnBody2 = [0 0 0]';
+a1.pointOnBody2 = [0 -0.04 0]';
 a1.vector1OnBody1 = [0 1 0]';
 a1.vector2OnBody1 = [0 0 1]';
 a1.vectorOnBody2 = [1 0 0]';
@@ -81,98 +82,118 @@ sys.addJoint('revolute',a1);
 %% Define spherical joint between connector and crank
 a2.body1 = 2;
 a2.body2 = 3;
-a2.pointOnBody1 = [0.0 0.08 0.0]';
+a2.pointOnBody1 = [0.0 0.04 0.0]';
 a2.pointOnBody2 = [-0.15 0.0 0.0]';  
 a2.constraintName = 'Spherical joint b/w connector and crank';
 
 sys.addJoint('spherical',a2);
 
 %% Define revolute-cylindrical composite joint between connector and slider
+% a3.body1 = 3;
+% a3.body2 = 4;
+% a3.pointOnBody1 = [0.15 0 0]';
+% a3.pointOnBody2 = [1 0 0]';
+% a3.vectorOnBody1 = [0 1 0]';
+% a3.vector1OnBody2 = [1 0 0]';
+% a3.vector2OnBody2 = [0 1 0]';
+% a3.vector3OnBody2 = [0 0 1]';
+% a3.constraintName = 'Rev-cylindrical joint b/w connector and slider';
+% 
+% sys.addJoint('revolute-cylindrical',a3);
+
 a3.body1 = 3;
-a3.body2 = 4;
+a3.body2 = 1;
 a3.pointOnBody1 = [0.15 0 0]';
-a3.pointOnBody2 = [1 0 0]';
+a3.pointOnBody2 = [2 0 0]';
 a3.vectorOnBody1 = [0 1 0]';
 a3.vector1OnBody2 = [1 0 0]';
 a3.vector2OnBody2 = [0 1 0]';
 a3.vector3OnBody2 = [0 0 1]';
-a3.constraintName = 'Rev-cylindrical joint b/w connector and slider';
+a3.constraintName = 'Rev-cylindrical joint b/w connector and ground';
 
 sys.addJoint('revolute-cylindrical',a3);
 
 %% Define translation joint between slider and ground
-a4.body1 = 1;
-a4.body2 = 4;
-a4.pointOnBody1 = [1 0 0]';
-a4.pointOnBody2 = [0 0 0]';
-a4.vector1OnBody1 = [0 1 0]';
-a4.vector2OnBody1 = [0 0 1]';
-a4.vector1OnBody2 = [1 0 0]';
-a4.vector2OnBody2 = [0 0 1]';
-a4.constraintName = 'Translation joint b/w slider and ground';
-
-sys.addJoint('translational',a4);
+% a4.body1 = 1;
+% a4.body2 = 4;
+% a4.pointOnBody1 = [2 0 0]';
+% a4.pointOnBody2 = [0.1 0 0]';
+% a4.vector1OnBody1 = [0 1 0]';
+% a4.vector2OnBody1 = [0 0 1]';
+% a4.vector1OnBody2 = [1 0 0]';
+% a4.vector2OnBody2 = [0 0 1]';
+% a4.constraintName = 'Translation joint b/w slider and ground';
+% 
+% sys.addJoint('translational',a4);
 
 %% Define distance constraint between connector and slider
-necessaryAttributes = [{'bodyI'} {'bodyJ'} {'sBarIP'} {'sBarJQ'} {'ft'} {'ftDot'} {'ftDDot'}];
-a5.bodyI = 3;
-a5.bodyJ = 4;
-a5.sBarIP = [0.15 0 0]';
-a5.sBarJQ = [0 0 0]';
-a5.ft = @(t)0;
-a5.ftDot =  @(t)0;
-a5.ftDDot =  @(t)0;
-a5.constraintName = 'Distance constraint b/w connector and slider';
-isKinematic = 1;
-sys.addBasicConstraint(isKinematic,'d',a5);
+% a5.bodyI = 3;
+% a5.bodyJ = 4;
+% a5.sBarIP = [0.15 0 0]';
+% a5.sBarJQ = [0 0 0]';
+% a5.ft = @(t)0;
+% a5.ftDot =  @(t)0;
+% a5.ftDDot =  @(t)0;
+% a5.constraintName = 'Distance constraint b/w connector and slider';
+% isKinematic = 1;
+% sys.addBasicConstraint(isKinematic,'d',a5);
+
 
 %% Add driving constraint to model
 % DP1 constraint between -Z and y'
-a6.bodyJ = 1;
-a6.bodyI = 2;
-a6.aBarJ = [0 1 0]';
-a6.aBarI = [0 1 0]';
-a6.ft = @(t)cos(-2*pi*t + pi/2);
-a6.ftDot = @(t)(2*pi*sin(-2*pi*t + pi/2));
-a6.ftDDot = @(t)(4*pi^2*cos(-2*pi*t + pi/2));
-a6.constraintName = 'DP1 driving constraint';
-isKinematic = 0;
-sys.addBasicConstraint(isKinematic,'dp1',a6);
+% a6.bodyJ = 1;
+% a6.bodyI = 2;
+% a6.aBarJ = [0 1 0]';
+% a6.aBarI = [0 1 0]';
+% a6.ft = @(t)cos(-2*pi*t + pi/2);
+% a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2));
+% a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2));
+% a6.constraintName = 'DP1 driving constraint';
+% isKinematic = 0;
+% sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Set initial conditions of each body
-r1Initial = zeros(3,1); % Ground
-r2Initial = [0.0; 0.1; 0.12]; % Crank
-r3Initial = [0.1; 0.05; 0.1]; % Connector
-r4Initial = [0.2; 0.0; 0.0]; % Slider.
-rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-
-% Initial orientation
-% Ground
-p1 = [1.0 0.0 0.0 0.0]'; 
-
-% Crank
-p2 = [0.7042 0.71 0.0 0.0]';
-
-% Connector (body3)
-p3 = [0.8865 -0.21 0.4 -0.1]';
-
-% Slider
-p4 =  [1.0 0.0 0.0 0.0]';
-
-pInitial = [p1; p2; p3; p4];
-
-t = 0;
-assemblyAnalysisFlag = 1;
-sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-
-% Initial velocities. Initial velocity known for crank.
-known = 2;
-knownInitialRDot = zeros(3,1);
-knownInitialOmegaBar = [2*pi; 0; 0];
-knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
-
-% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-sys.computeAndSetInitialVelocities([], [], []);
+% if exist('sliderCrankMechanismDynamicsAnalysis.mat')
+%     load('sliderCrankMechanismDynamicsAnalysis.mat')
+% else
+    r1Initial = zeros(3,1); % Ground
+    r2Initial = [0.0; 0.1; 0.12]; % Crank
+    r3Initial = [0.1; 0.05; 0.1]; % Connector
+%     r4Initial = [0.2; 0.0; 0.0]; % Slider.
+%     rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+rInitial = [r1Initial; r2Initial; r3Initial];
+    
+    % Initial orientation
+    % Ground
+    p1 = [1.0 0.0 0.0 0.0]';
+    
+    % Crank
+    p2 = [0.7042 0.71 0.0 0.0]';
+    
+    % Connector (body3)
+    p3 = [0.8865 -0.21 0.4 -0.1]';
+    
+    % Slider
+%     p4 =  [1.0 0.0 0.0 0.0]';
+    
+%     pInitial = [p1; p2; p3; p4];
+ pInitial = [p1; p2; p3];
+    
+    t = 0;
+    assemblyAnalysisFlag = 1;
+    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+    
+    % Initial velocities. Initial velocity known for crank.
+    known = 2;
+    knownInitialRDot = [0; -0.04*2*pi; 0];
+%     knownInitialRDot = zeros(3,1);
+    knownInitialOmegaBar = [2*pi; 0; 0];
+    knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
+    
+    sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+%     sys.computeAndSetInitialVelocities([], [], []);
+%     save('sliderCrankMechanismDynamicsAnalysis.mat','sys');
+% end
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -182,7 +203,7 @@ view([90 0])
 if 1
     timeStart = 0;
     timeEnd = 1;
-    timeStep = 10^-3;
+    timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
     method = 'quasiNewton';
@@ -191,12 +212,12 @@ if 1
     %     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
-    save('sliderCrankMechanism.mat','sys');
+    save('sliderCrankMechanismDynamicsAnalysis.mat','sys');
 else
-    load('sliderCrankMechanism.mat')
+    load('sliderCrankMechanismDynamicsAnalysis.mat')
 end
 
-disp(['Analysis for sliderCrankMechanism took ' num2str(analysisTime) ' seconds.'])
+disp(['Analysis for sliderCrankMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
 
 %% Plot the position, velocity, and acceleration of the slider vs time
 sliderPosition = sys.myBodies{4}.myRTotal;
@@ -243,6 +264,7 @@ hold off
 %% Plot the position of point B versus time
 crankOrientation = sys.myBodies{2}.myPTotal;
 crankPosition = sys.myBodies{2}.myRTotal;
+time = sys.myBodies{2}.myTimeTotal;
 pointBPosition = zeros(3,length(time));
 sB = [0 0.08 0]';
 for iT = 1:length(time)
@@ -258,6 +280,26 @@ plot(time,pointBPosition(3,:));
 legend('x','y','z')
 hold off
 
+%% Plot the position of point C versus time
+barOrientation = sys.myBodies{3}.myPTotal;
+barPosition = sys.myBodies{3}.myRTotal;
+time = sys.myBodies{3}.myTimeTotal;
+pointCPosition = zeros(3,length(time));
+sC = [0.15 0.0 0]';
+for iT = 1:length(time)
+    A = simEngine3DUtilities.p2A(barOrientation(:,iT));
+    pointCPosition(:,iT) = barPosition(:,iT) + A*sB;
+end
+
+figure
+hold on
+plot(time,pointCPosition(1,:));
+plot(time,pointCPosition(2,:));
+plot(time,pointCPosition(3,:));
+legend('x','y','z')
+hold off
+
+
 %% Display torque at the revolute joint 
 % Extract torque for body 2 due to all constraints and time
 torque = sys.myBodies{2}.myConstraintTorquesOmegaTotal;
@@ -267,7 +309,7 @@ time = sys.myBodies{2}.myTimeTotal;
 theta = 2*pi*time + pi/2;
 
 % Extract torque due to DP1 driving constraint.
-DP1const = 18;
+DP1const = 12;
 torqueDriving = torque((3*DP1const-2):3*DP1const,:);
 
 figure

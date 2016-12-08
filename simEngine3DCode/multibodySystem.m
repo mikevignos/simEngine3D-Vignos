@@ -1681,7 +1681,7 @@ classdef multibodySystem < handle
             
             % Check to ensure this constraint is satisfied
             check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
-            if (abs(norm(check)) > 10^-6)
+            if (abs(norm(check)) > 10^-2)
                 error('Velocity constraint not satisified in initial pose.')
                 velocityConstFlag = 0;
             else
@@ -3048,7 +3048,7 @@ classdef multibodySystem < handle
             %   vectorOnBody1 = Vector on body1 used to define the
             %   revolute joint. This vector is orthogonal to vectorOnBody2.
             %   vector1OnBody2 = Vector on body2 used to define the
-            %   translation axis of this body.. This vector is orthogonal to vectorOnBody1.
+            %   translation axis of this body. This vector is orthogonal to vectorOnBody1.
             %   vector2OnBody2 = 1st vector on body2 used to define the
             %   plane orthogonal to the translational axis. This is
             %   orthogonal to vector1OnBody2.

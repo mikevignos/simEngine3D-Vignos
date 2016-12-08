@@ -87,29 +87,43 @@ a2.constraintName = 'Revolute joint b/w first and second links';
 
 sys.addJoint('revolute',a2);
 
-%% Define revolute joint between second link and third link
-a3.body1 = 3;
-a3.body2 = 4;
-a3.pointOnBody1 = [0 -0.5 0]';
-a3.pointOnBody2 = [0 0.5 0]';
-a3.vector1OnBody1 = [1 0 0]';
-a3.vector2OnBody1 = [0 1 0]';
-a3.vectorOnBody2 = [0 0 1]';
-a3.constraintName = 'Revolute joint b/w second and third links';
+%% Define 2 CD constraints between second link and third link
+a3.bodyI = 3;
+a3.bodyJ = 4;
+a3.coordVec = [1 0 0]';
+a3.sBarIP = [0 -0.5 0]';
+a3.sBarJQ = [0 0.5 0]'; 
+a3.ft = @(t)0;
+a3.ftDot = @(t)0;
+a3.ftDDot = @(t)0;
+a3.constraintName = 'CD constraint in x-direction b/w second and third links';
 
-sys.addJoint('revolute',a3);
+isKinematic = 1;
+sys.addBasicConstraint(isKinematic,'cd',a3);
+
+a4.bodyI = 3;
+a4.bodyJ = 4;
+a4.coordVec = [0 1 0]';
+a4.sBarIP = [0 0.5 0]';
+a4.sBarJQ = [0 0.5 0]'; 
+a4.ft = @(t)0;
+a4.ftDot = @(t)0;
+a4.ftDDot = @(t)0;
+a4.constraintName = 'CD constraint in y-direction b/w second and third links';
+
+sys.addBasicConstraint(isKinematic,'cd',a4);
 
 %% Define revolute joint between third link and ground
-a4.body1 = 1;
-a4.body2 = 4;
-a4.pointOnBody1 = [1 0 0]';
-a4.pointOnBody2 = [0 -0.5 0]';
-a4.vector1OnBody1 = [1 0 0]';
-a4.vector2OnBody1 = [0 1 0]';
-a4.vectorOnBody2 = [0 0 1]';
-a4.constraintName = 'Revolute joint b/w third link and ground';
+a5.body1 = 1;
+a5.body2 = 4;
+a5.pointOnBody1 = [1 0 0]';
+a5.pointOnBody2 = [0 -0.5 0]';
+a5.vector1OnBody1 = [1 0 0]';
+a5.vector2OnBody1 = [0 1 0]';
+a5.vectorOnBody2 = [0 0 1]';
+a5.constraintName = 'Revolute joint b/w third link and ground';
 
-sys.addJoint('revolute',a4);
+sys.addJoint('revolute',a5);
 
 %% Set initial conditions of each body
 if exist('fourBarMechanismDynamicsAnalysis.mat')
@@ -148,7 +162,7 @@ else
     % Initial velocities
     known = 2;
     knownInitialRDot = [0.5 0 0]';
-    knownInitialOmegaBar = [1; 0; 0];
+    knownInitialOmegaBar = [0; 0; -1];
     knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
     
     sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
@@ -169,12 +183,12 @@ if 1
 %         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
     analysisTime = toc;
-    save('uniqueFourBarMechanism.mat','sys');
+    save('fourBarMechanismDynamicsAnalysis.mat','sys');
 else
-    load('uniqueFourBarMechanism.mat')
+    load('fourBarMechanismDynamicsAnalysis.mat')
 end
 
-disp(['Inverse Dynamics Analysis for uniqueFourBarMechanism took ' num2str(analysisTime) ' seconds.'])
+disp(['Dynamics Analysis for fourBarMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
 
 %% Plot the position of point B versus time
 wheelOrientation = sys.myBodies{2}.myPTotal;

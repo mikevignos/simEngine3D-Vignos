@@ -18,7 +18,8 @@ gravityDirection = '-z';
 sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
 % Add body2. The is the crank
-length2 = 0.08; % meters
+% length2 = 0.08; % meters
+length2 = 0.16; % meters
 mass2 = 0.12; % kg
 
 % Define inertial properties of the crank
@@ -133,37 +134,43 @@ a6.bodyI = 2;
 a6.aBarJ = [0 1 0]';
 a6.aBarI = [0 1 0]';
 a6.ft = @(t)cos(-2*pi*t + pi/2);
-a6.ftDot = @(t)(2*pi*sin(-2*pi*t + pi/2));
-a6.ftDDot = @(t)(4*pi^2*cos(-2*pi*t + pi/2));
+a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2));
+a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2));
 a6.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Set initial conditions of each body
-r1Initial = zeros(3,1); % Ground
-r2Initial = [0.0; 0.1; 0.12]; % Crank
-r3Initial = [0.1; 0.05; 0.1]; % Connector
-r4Initial = [0.2; 0.0; 0.0]; % Slider.
-rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-
-% Initial orientation
-% Ground
-p1 = [1.0 0.0 0.0 0.0]'; 
-
-% Crank
-p2 = [0.7042 0.71 0.0 0.0]';
-
-% Connector (body3)
-p3 = [0.8865 -0.21 0.4 -0.1]';
-
-% Slider
-p4 =  [1.0 0.0 0.0 0.0]';
-
-pInitial = [p1; p2; p3; p4];
-
-t = 0;
-assemblyAnalysisFlag = 1;
-sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+% if exist('sliderCrankMechanismKinematicsAnalysis.mat')
+%     load('sliderCrankMechanismKinematicsAnalysis.mat')
+% else
+    r1Initial = zeros(3,1); % Ground
+    r2Initial = [0.0; 0.1; 0.12]; % Crank
+    r3Initial = [0.1; 0.05; 0.1]; % Connector
+    r4Initial = [0.2; 0.0; 0.0]; % Slider.
+    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+    
+    % Initial orientation
+    % Ground
+    p1 = [1.0 0.0 0.0 0.0]';
+    
+    % Crank
+    p2 = [0.7042 0.71 0.0 0.0]';
+    
+    % Connector (body3)
+    p3 = [0.8865 -0.21 0.4 -0.1]';
+    
+    % Slider
+    p4 =  [1.0 0.0 0.0 0.0]';
+    
+    pInitial = [p1; p2; p3; p4];
+    
+    t = 0;
+    assemblyAnalysisFlag = 1;
+    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+    
+    save('sliderCrankMechanismKinematicsAnalysis.mat','sys');
+% end
 
 % Initial velocities. Initial velocity known for crank.
 % known = 2;
