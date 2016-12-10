@@ -220,7 +220,7 @@ classdef body < handle
             obj.myTorques{nTorques + 1}.torque = torque;
             obj.myTorques{nTorques + 1}.name = torqueName;
         end
-        function obj = computeTorqueHat(obj)
+        function obj = computeTorqueHat(obj, sys, time)
             % Compute torqueHat vector for this body. This depends on the
             % current orientation of the body.
             
@@ -244,6 +244,61 @@ classdef body < handle
                     A = obj.myA;
                     torque = sBarTilde*A'*force;
                     torqueSum = torqueSum + torque;                
+            end
+            
+            % Check if any TSDAs exist in the system. If they do, check to 
+            % see if they are attached to this body. If they are, loop
+            % through those and compute the torque due to the TSDA. Then,
+            % add this into the total torque sum. Remember,
+            % a torque is only applied to the body if the TSDA does not act
+            % through the center of mass of the body.
+            nTSDAs = sys.myNumTSDAs;
+            if (nTSDAs > 0)
+                for iT = 1:nTSDAs
+                    TSDA = sys.myTSDAs{iT};
+                    bodyI = TSDA.bodyI;
+                    bodyJ = TSDA.bodyJ;
+                    
+                    % Only apply a torque if this body is one of the bodies
+                    % the TSDA is attached to.
+                    if (bodyI == obj.myBodyNumber) || (bodyJ == obj.myBodyNumber)
+                        sBarIP = TSDA.sBarIP;
+                        sBarJQ = TSDA.sBarJQ;
+                        k = TSDA.stiffness;
+                        L0 = TSDA.restingLength;
+                        c = TSDA.dampingCoefficient;
+                        h = TSDA.actuatorFunction;
+                        
+                        % Compute the force of the TSDA.
+                        dij = simEngine3DUtilities.computeDij(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+                        dijDot = simEngine3DUtilities.computeDijDot(sys, bodyI, bodyJ, sBarIP, sBarJQ);
+                        
+                        lij = sqrt(dij'*dij);
+                        eij = dij/lij;
+                        lijDot = eij'*dijDot;
+                        
+                        force = k*(lij - L0) + c*lijDot + h(lij, lijDot, time);
+                        
+                        % Change direction of force depending on which body
+                        % this is
+                        if (bodyI == obj.myBodyNumber)
+                            forceOnThisBody = force*eij;
+                            sBar = sBarIP;
+                        elseif (bodyJ == obj.myBodyNumber)
+                            forceOnThisBody = -force*eij;
+                            sBar = sBarJQ;
+                        end
+                        
+                        % Compute the torque applied by this body.
+                        obj.computeA();
+                        A = obj.myA;
+                        sBarTilde = simEngine3DUtilities.skewSym(sBar);
+                        torque = sBarTilde*A'*forceOnThisBody;
+                        
+                        % Add this torque to the overall torque sum
+                        torqueSum = torqueSum + torque;
+                    end
+                end
             end
             
             % Compute G and Gdot

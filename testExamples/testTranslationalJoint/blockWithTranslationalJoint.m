@@ -96,9 +96,10 @@ if 1
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
+     velocityConstraintViolationFlag = 0;
     method = 'quasiNewton';
     tic;
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     dynamicsAnalysisTime = toc;
     save('testRevoluteJoint.mat','sys');
 else

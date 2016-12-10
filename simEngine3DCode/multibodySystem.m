@@ -6,6 +6,7 @@ classdef multibodySystem < handle
     properties
         myBodies; % Structure containing all of the bodies in the system
         myConstraints; % Structure containing all of the constraints in the system
+        myTSDAs; % Structure containing all of the TSDAs in the system.
         myNumKinematicConstraints; % Number of kinematic constraints in the system
         myNumDrivingConstraints; % Number of driving constraints in the system
         myBodyIsGround; % Flag indicating if one of the bodies in the system is the ground.
@@ -59,6 +60,7 @@ classdef multibodySystem < handle
         myTorqueHatPartialPDot; % Partial derivative of torqueHat w.r.t pDot       
         myJpDDotPartialP; % Partial derivative of [Jp*pDDot] w.r.t p for all bodies.
         myEulerConstraintPartialP; % Partial derivative of [P'*lambdaP] w.r.t. p.
+        myLij; % Length of the TSDA
     end
     
     properties (Dependent)
@@ -70,6 +72,7 @@ classdef multibodySystem < handle
         myNumTimeSteps; % Number of time steps that have been completed in simulation.
         myMassMatrix; % Mass matrix for the entire system.
         myJMatrix; % Polar moment of inertia matrix for the entire system.
+        myNumTSDAs; % Number of TSDAs in the system.
     end
     
     methods
@@ -97,6 +100,46 @@ classdef multibodySystem < handle
             % Add a body to the system
             newBody = body(bodyNumber, bodyType, isGround, mass, bodyLength, JMatrix, gravityDirection);
             obj.myBodies{bodyNumber} = newBody;
+        end
+        function obj = addTSDA(obj, attributes)
+            % Add a translational-spring-damper-actuator to the system.
+            %
+            % Function inputs:
+            % attributes : structure
+            %   Attributes of the TSDA that must be defined by the user.
+            %   Attributes are as follows:
+            %   bodyI = First body the TSDA is attached to.
+            %   bodyJ = Second body the TSDA is attached to.
+            %   sBarIP = point on bodyI that the TSDA is attached to.
+            %   sBarJQ = point on bodyJ that the TSDA is attached to.
+            %   stiffness = Stiffness of spring (in N/m) in the TSDA
+            %   restingLength = Resting length of the spring (in m) in the
+            %   TSDA
+            %   dampingCoefficient = Damping coefficient of the damper (in Ns/m) in the TSDA
+            %   actuatorFunction = Function represents the behavior of the
+            %   actuator w.r.t. time.
+            
+            necessaryAttributes = [{'bodyI'} {'bodyJ'} {'sBarIP'} {'sBarJQ'}...
+                {'stiffness'} {'restingLength'} {'dampingCoefficient'} ...
+                {'actuatorFunction'}];
+            
+            for iA = 1:length(necessaryAttributes)
+                if ~isfield(attributes,necessaryAttributes{iA})
+                    error(['ERROR: Must provide ' necessaryAttributes{iA} ' for a TSDA.']);
+                end
+            end
+            
+            % Tell user constraint name is optional if it is not
+            % provided
+            if ~isfield(attributes,'name')
+                disp('name not provided. Setting to default');
+                attributes.name = 'TSDA';
+            end
+            
+            % Store this TSDA
+            TSDA = attributes;
+            nTSDAs = obj.myNumTSDAs;
+            obj.myTSDAs{nTSDAs + 1} = TSDA; 
         end
         function obj = addForce(obj, bodyNumber, force, sBar, forceName)
             % Add a force to a body in the multibody system
@@ -767,10 +810,10 @@ classdef multibodySystem < handle
                 if (order == 2) && (stepNumber <= 2)
                     orderTemp = 1;
                     obj.BDFmethodIteration(rDDotGuess, pDDotGuess, orderTemp, stepsize, time, stepNumber);
-                    obj.computeGMatrix(stepsize,orderTemp);
+                    obj.computeGMatrix(stepsize,orderTemp,time);
                 else
                     obj.BDFmethodIteration(rDDotGuess, pDDotGuess, order, stepsize, time, stepNumber);
-                    obj.computeGMatrix(stepsize,order);
+                    obj.computeGMatrix(stepsize,order,time);
                 end
                 
                 % Extract residual in the system (g matrix)
@@ -869,7 +912,7 @@ classdef multibodySystem < handle
             
             obj.myConstraintLagrangeMultipliers = constLambdaGuess;
             obj.myEulerParamLagrangeMultipliers = pLambdaGuess;
-            obj.computeGMatrix(stepsize, order);
+            obj.computeGMatrix(stepsize, order, time);
             G0 = obj.myGMatrix;
             
             % Loop through each value of zGuess, increment it by a delta,
@@ -895,7 +938,7 @@ classdef multibodySystem < handle
                 obj.myEulerParamLagrangeMultipliers = pLambdaNew;
                 
                 % Compute the new G matrix
-                obj.computeGMatrix(stepsize, order);
+                obj.computeGMatrix(stepsize, order, time);
                 Gnew = obj.myGMatrix;
                 
                 % Compute the finite differences.
@@ -1333,7 +1376,7 @@ classdef multibodySystem < handle
             obj.myPsi = psi;
             
         end
-        function obj = computeGMatrix(obj, stepsize, order)
+        function obj = computeGMatrix(obj, stepsize, order, time)
             % Compute the g-matrix for the BDF method iteration
             %
             % Function inputs:
@@ -1370,7 +1413,7 @@ classdef multibodySystem < handle
             obj.computePhiPartialP();
             phiPartialP = obj.myPhiPartialP;
             
-            obj.computeForceVector();
+            obj.computeForceVector(time);
             forceVector = obj.myForceVector;
             
             obj.computeJpMatrixTotal();
@@ -1379,7 +1422,7 @@ classdef multibodySystem < handle
             obj.computePMatrix();
             Pmatrix = obj.myPMatrix;
             
-            obj.computeTorqueHatVector();
+            obj.computeTorqueHatVector(time);
             tauHat = obj.myTorqueHatVector;
             
             obj.computePhiP();
@@ -1522,7 +1565,7 @@ classdef multibodySystem < handle
             LHSforEOM = obj.myLHSforEOM;
             
             % Compute right hand side of equations of motion
-            obj.computeRHSforEOM();
+            obj.computeRHSforEOM(time);
             RHSforEOM = obj.myRHSforEOM;
             
             % Solve for accelerations
@@ -1601,16 +1644,16 @@ classdef multibodySystem < handle
                 phiPartialR, phiPartialP, zeros(nConst,nBodies), zeros(nConst,nConst)];
             obj.myLHSforEOM = LHSmatrix;
         end
-        function obj = computeRHSforEOM(obj)
+        function obj = computeRHSforEOM(obj, time)
             % Compute the right hand side for the matrix-form of the
             % Newton-Euler equations of motion
             
             % Compute the total external force acting on the system
-            obj.computeForceVector();
+            obj.computeForceVector(time);
             forceVector = obj.myForceVector;
             
             % Compute total external torque acting on the system
-            obj.computeTorqueHatVector();
+            obj.computeTorqueHatVector(time);
             tauHat = obj.myTorqueHatVector;
             
             % Compute gamma total, which contains gamma for the Euler
@@ -1687,12 +1730,14 @@ classdef multibodySystem < handle
             nuConst = nu(1:obj.myNumConstraints);
             
             % Check to ensure this constraint is satisfied
-            check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
-            if (abs(norm(check)) > 10^-2)
-                error('Velocity constraint not satisified in initial pose.')
-                velocityConstFlag = 0;
-            else
-                velocityConstFlag = 1;
+            if ~isempty(phiPartialR)
+                check = phiPartialR*rDotVec + phiPartialP*pDotVec - nuConst;
+                if (abs(norm(check)) > 10^-2)
+                    error('Velocity constraint not satisified in initial pose.')
+                    velocityConstFlag = 0;
+                else
+                    velocityConstFlag = 1;
+                end
             end
             
             % Check that the Euler parameter velocity normalization
@@ -1710,7 +1755,7 @@ classdef multibodySystem < handle
             
             % Check to see if any of the flags are zero. If they are, one
             % of the constraints was not satisfied
-            if (phiFullFlag == 0) || (eulerParamConstFlag == 0) || (velocityConstFlag == 0) || (eulerParamVelConstFlag == 0)
+            if (phiFullFlag == 0) || (eulerParamConstFlag == 0) || (eulerParamVelConstFlag == 0)
                 obj.myInitCondFlag = 0;
             else
                 obj.myInitCondFlag = 1;
@@ -1865,7 +1910,7 @@ classdef multibodySystem < handle
                 
                 % Compute the Lagrange multipliers using the equations of
                 % motion
-                obj.computeLagrangeMultipliers();
+                obj.computeLagrangeMultipliers(t);
                 
                 % Compute forces and torques associated with each Lagrange
                 % multiplier.
@@ -1982,12 +2027,12 @@ classdef multibodySystem < handle
                 obj.myBodies{iB}.convertConstraintTorques();
             end
         end
-        function obj = computeLagrangeMultipliers(obj)
+        function obj = computeLagrangeMultipliers(obj, time)
             % Compute the Lagrange multipliers that will be used for
             % computing the reaction force and torques
             
             % Compute the RHS for linear system of equations for inverse dynamics analysis
-            obj.computeInvDynRHS();
+            obj.computeInvDynRHS(time);
             invDynRHS = obj.myInvDynRHS;
             
             % Compute the constraint partial derivative matrix. The matrix
@@ -2195,7 +2240,7 @@ classdef multibodySystem < handle
             obj.myPhiPartialP  = phiPartialP;
         end
         
-        function obj = computeInvDynRHS(obj)
+        function obj = computeInvDynRHS(obj, time)
             % Compute the RHS of the linear system of equations for the
             % inverse dynamics analysis
             
@@ -2207,7 +2252,7 @@ classdef multibodySystem < handle
             end
             
             % Obtain force vector
-            obj.computeForceVector();
+            obj.computeForceVector(time);
             forceVec = obj.myForceVector;
             
             % Obtain mass matrix
@@ -2244,7 +2289,7 @@ classdef multibodySystem < handle
             
             obj.myInvDynRHS = invDynRHS;
         end
-        function obj = computeTorqueHatVector(obj)
+        function obj = computeTorqueHatVector(obj, time)
             % Compute torqueHat for all bodies in the system and assemble
             % into a vector.
             
@@ -2261,17 +2306,20 @@ classdef multibodySystem < handle
             iT = 1;
             for iB = 1:obj.myNumBodies
                 if (obj.myBodies{iB}.myIsGround == 0)
-                    obj.myBodies{iB}.computeTorqueHat();
+                    obj.myBodies{iB}.computeTorqueHat(obj,time);
                     torqueHat = obj.myBodies{iB}.myTorqueHat;
                     torqueHatVector((4*iT-3):(4*iT),1) = torqueHat;
                     iT = iT + 1;
                 end
             end
+
             obj.myTorqueHatVector = torqueHatVector;
             
         end
-        function obj = computeForceVector(obj)
+        function obj = computeForceVector(obj, time)
             % Compute force vector of the system
+            %
+            % time = Current time of the system.
             
             if (obj.myBodyIsGround == 1)
                 nBodies = obj.myNumBodies - 1;
@@ -2289,6 +2337,71 @@ classdef multibodySystem < handle
                     iF = iF + 1;
                 end
             end
+            
+            % Check if any TSDAs exist in the system. If they do, loop
+            % through those and compute the force due to the TSDA. Then,
+            % add this into the correct portion of the force vector
+            % depending on which bodies the TSDA is attached to.
+            nTSDAs = obj.myNumTSDAs;
+            if (nTSDAs > 0)
+                for iT = 1:nTSDAs
+                    TSDA = obj.myTSDAs{iT};
+                    bodyI = TSDA.bodyI;
+                    bodyJ = TSDA.bodyJ;
+                    sBarIP = TSDA.sBarIP;
+                    sBarJQ = TSDA.sBarJQ;
+                    k = TSDA.stiffness;
+                    L0 = TSDA.restingLength;
+                    c = TSDA.dampingCoefficient;
+                    h = TSDA.actuatorFunction;
+                    
+                    % Compute dij and dijDot
+                    dij = simEngine3DUtilities.computeDij(obj, bodyI, bodyJ, sBarIP, sBarJQ);
+                    dijDot = simEngine3DUtilities.computeDijDot(obj, bodyI, bodyJ, sBarIP, sBarJQ);
+                    
+                    % Compute lij, lijDot, and eij
+                    lij = sqrt(dij'*dij);
+                    eij = dij/lij;
+                    lijDot = eij'*dijDot;
+                    
+                    % Compute the force applied by this TSDA on each body
+                    force = k*(lij - L0) + c*lijDot + h(lij, lijDot, time);
+                    forceOnBodyI = force*eij;
+                    forceOnBodyJ = -forceOnBodyI;
+                    
+                    % Add these forces into the correct place of the force
+                    % vector. If there is a ground in the system, the body
+                    % numbers need to be decreased by 1. Also, if one of
+                    % the bodies is the ground, the no force will be
+                    % applied to that body.
+                    if (obj.myBodyIsGround)
+                        if (obj.myBodies{bodyJ}.myIsGround == 1) % BodyJ is the ground
+                            iI = bodyI - 1;
+                            forceVector((3*iI-2:3*iI),1) = ...
+                            forceVector((3*iI-2:3*iI),1) + forceOnBodyI;
+                        elseif (obj.myBodies{bodyI}.myIsGround == 1) % BodyI is the ground
+                            iJ = bodyJ - 1;
+                            forceVector((3*iJ-2:3*iJ),1) = ...
+                            forceVector((3*iJ-2:3*iJ),1) + forceOnBodyJ;
+                        else % There is a ground, but neither body is the ground.
+                            iJ = bodyJ - 1;
+                            iI = bodyI - 1;
+                            forceVector((3*iI-2:3*iI),1) = ...
+                            forceVector((3*iI-2:3*iI),1) + forceOnBodyI;
+                            forceVector((3*iJ-2:3*iJ),1) = ...
+                            forceVector((3*iJ-2:3*iJ),1) + forceOnBodyJ;
+                        end
+                    else % There is no ground. Continue with normal numbering.
+                        iI = bodyI;
+                        iJ = bodyJ;
+                        forceVector((3*iI-2:3*iI),1) = ...
+                            forceVector((3*iI-2:3*iI),1) + forceOnBodyI;
+                        forceVector((3*iJ-2:3*iJ),1) = ...
+                            forceVector((3*iJ-2:3*iJ),1) + forceOnBodyJ;
+                    end
+                end
+            end
+
             obj.myForceVector = forceVector;
         end
         function  obj = computeJpMatrixTotal(obj)
@@ -3906,6 +4019,10 @@ classdef multibodySystem < handle
         function myNumTimeSteps = get.myNumTimeSteps(obj)
             % Compute current number of time steps completed for simulation
             myNumTimeSteps = length(obj.myTimeTotal);
+        end
+        function myNumTSDAs = get.myNumTSDAs(obj)
+            % Compute number of TSDAs in the system
+            myNumTSDAs = length(obj.myTSDAs);
         end
     end
     

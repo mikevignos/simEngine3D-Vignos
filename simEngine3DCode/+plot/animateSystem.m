@@ -120,7 +120,7 @@ axisWindow = [mins(1)-border maxs(1)+border mins(2)-border maxs(2)+border mins(3
 axis equal
 axis(axisWindow); % set axes size
 view(viewAngle(1),viewAngle(2)); 
-pause;
+% pause;
 
 % animate through time
 propertyCell = {'XData','YData','ZData'};
