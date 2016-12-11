@@ -1,5 +1,6 @@
-%% flyballGovernor.m
-% Taken from: http://lim.ii.udc.es/mbsbenchmark/dist/A05/A05_specification.xml
+%% flyballGovernorFromTextbook.m
+% Taken from ch. 12.6 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
+% Mechanical Systems (Allyn and Bacon, 1989)
 clear; close all; clc;
 
 %% Create instance of multibody system
@@ -11,20 +12,17 @@ mass1 = 1;
 length1 = 0;
 isGround1 = 1;
 JMatrix1 = eye(3,3);
-gravityDirection = '-z';
+gravityDirection = '-y';
 sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
 % Add body2. The is the rotation shaft.
-length2 = 1.0; % meters.
-density2 = 3000;
-area2 = 0.01*0.01;
-volume2 = length2*area2;
-mass2 = density2*volume2;
+length2 = 0.2; % meters.
+mass2 = 200;
 
 % Define inertial properties of the rotation shaft.
-Jxx = mass2*length2^2/12;
-Jyy = mass2*length2^2/12;
-Jzz = 0;
+Jxx = 25;
+Jyy = 50;
+Jzz = 25;
 JMatrix2 = zeros(3,3);
 JMatrix2(1,1) = Jxx;
 JMatrix2(2,2) = Jyy;
@@ -33,55 +31,46 @@ JMatrix2(3,3) = Jzz;
 isGround2 = 0;
 sys.addBody(2, 'bar', isGround2, mass2, length2, JMatrix2, gravityDirection);
 
-% Add body3 to the system. This is the right side rod in the picture.
-length3 = 1.0; % meters.
-density3 = 3000;
-area3 = 0.01*0.01;
-volume3 = length3*area3;
-mass3 = density3*volume3;
+% Add body3 to the system. This is the right side ball.
+length3 = 0.0; % meters.
+mass3 = 1;
 
 % Define inertial properties of the rotation shaft.
-Jxx = mass3*length3^2/12;
-Jyy = mass3*length3^2/12;
-Jzz = 0;
+Jxx = 0.1;
+Jyy = 0.1;
+Jzz = 0.1;
 JMatrix3 = zeros(3,3);
 JMatrix3(1,1) = Jxx;
 JMatrix3(2,2) = Jyy;
 JMatrix3(3,3) = Jzz;
 
 isGround3 = 0;
-sys.addBody(3, 'bar', isGround3, mass3, length3, JMatrix3, gravityDirection);
+sys.addBody(3, 'point', isGround3, mass3, length3, JMatrix3, gravityDirection);
 
-% Add body4 to the system. This is the right side rod in the picture.
-length4 = 1.0; % meters.
-density4 = 3000;
-area4 = 0.01*0.01;
-volume4 = length4*area4;
-mass4 = density4*volume4;
+% Add body4 to the system. This is the right side ball in the picture.
+length4 = 0.0; % meters.
+mass4 = 1;
 
-% Define inertial properties of the rotation shaft.
-Jxx = mass4*length4^2/12;
-Jyy = mass4*length4^2/12;
-Jzz = 0;
+% Define inertial properties
+Jxx = 0.1;
+Jyy = 0.1;
+Jzz = 0.1;
 JMatrix4 = zeros(3,3);
 JMatrix4(1,1) = Jxx;
 JMatrix4(2,2) = Jyy;
 JMatrix4(3,3) = Jzz;
 
 isGround4 = 0;
-sys.addBody(4, 'bar', isGround4, mass4, length4, JMatrix4, gravityDirection);
+sys.addBody(4, 'point', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
-% Add body5. This is the base.
-length5 = 0.1;
-area5 = 0.1*0.1;
-volume5 = length5*area5;
-density = 3000;
-mass5 = volume5*density;
+% Add body5. This is the collar.
+length5 = 0.1; % This length doesn't matter
+mass5 = 1;
 
 % Define inertial properties of the slider
-Jxx = mass5*length5^2/6;
-Jyy = mass5*length5^2/6;
-Jzz = mass5*length5^2/6;
+Jxx = 0.15;
+Jyy = 0.125;
+Jzz = 0.15;
 JMatrix5 = zeros(3,3);
 JMatrix5(1,1) = Jxx;
 JMatrix5(2,2) = Jyy;
@@ -90,53 +79,41 @@ JMatrix5(3,3) = Jzz;
 isGround5 = 0;
 sys.addBody(5, 'block', isGround5, mass5, length5, JMatrix5, gravityDirection);
 
-%% Add TSDAs to the system
-factor = 1e3;
-s1.bodyI = 3;
+%% Add TSDA to the system
+s1.bodyI = 2;
 s1.bodyJ = 5;
 s1.sBarIP = [0 0 0]';
-s1.sBarJQ = [0.05 0 0]';
-s1.stiffness = 8e5/factor;
-s1.restingLength = 0.5;
-s1.dampingCoefficient = 4e4/factor;
+s1.sBarJQ = [0.0 0 0]';
+s1.stiffness = 1000;
+s1.restingLength = 0.15;
+s1.dampingCoefficient = 30;
 s1.actuatorFunction = @(lij, lijDot, t)0;
-s1.name = 'Spring-Damper Element b/w body 3 and 5';
+s1.name = 'Spring-Damper Element b/w body 2 and 5';
 sys.addTSDA(s1);
-% 
-s2.bodyI = 4;
-s2.bodyJ = 5;
-s2.sBarIP = [0 0 0]';
-s2.sBarJQ = [-0.05 0 0]';
-s2.stiffness = 8e5/factor;
-s2.restingLength = 0.5;
-s2.dampingCoefficient = 4e4/factor;
-s2.actuatorFunction = @(lij, lijDot, t)0;
-s2.name = 'Spring-Damper Element b/w body 4 and 5';
-sys.addTSDA(s2);
 
 %% Define important points and vectors in the system
-sys.addPoint(2, [0 0 -0.5]', 'base');
-sys.addPoint(2, [0 0 0.5]', 'top');
-sys.addPoint(3, [0 0 -0.5]', 'base');
-sys.addPoint(3, [0 0 0.5]', 'top');
-sys.addPoint(4, [0 0 -0.5]', 'base');
-sys.addPoint(4, [0 0 0.5]', 'top');
-sys.addPoint(5, [0.05 0 0]','connectionForTSDA1');
-sys.addPoint(5, [-0.05 0 0]','connectionForTSDA2');
+sys.addPoint(2, [0 -0.2 0]', 'base');
+sys.addPoint(2, [0 0 0]', 'top');
+% sys.addPoint(3, [0 0 -0.5]', 'base');
+% sys.addPoint(3, [0 0 0.5]', 'top');
+% sys.addPoint(4, [0 0 -0.5]', 'base');
+% sys.addPoint(4, [0 0 0.5]', 'top');
+% sys.addPoint(5, [0.05 0 0]','connectionForTSDA1');
+% sys.addPoint(5, [-0.05 0 0]','connectionForTSDA2');
 
 %% Define revolute joint between axis and ground
 a1.body1 = 1;
 a1.body2 = 2;
 a1.pointOnBody1 = [0 0 0]';
-a1.pointOnBody2 = [0 0 -0.5]';
+a1.pointOnBody2 = [0 -0.2 0]';
 a1.vector1OnBody1 = [1 0 0]';
-a1.vector2OnBody1 = [0 1 0]';
-a1.vectorOnBody2 = [0 0 1]';
+a1.vector2OnBody1 = [0 0 1]';
+a1.vectorOnBody2 = [0 1 0]';
 a1.constraintName = 'Revolute Joint b/w Ground and Axis';
 
 sys.addJoint('revolute',a1);
 
-%% Define translational joint between axis and base
+%% Define translational joint between axis and collar
 %   body1 = first body in joint
 %   body2 = second body in joint
 %   pointOnBody1 = 3D location of a point along the translational axis of body1
@@ -153,17 +130,17 @@ sys.addJoint('revolute',a1);
 
 a2.body1 = 2;
 a2.body2 = 5;
-a2.pointOnBody1 = [0 0 -0.5]';
+a2.pointOnBody1 = [0 1 0]';
 a2.pointOnBody2 = [0 0 0]';
-a2.vector1OnBody1 = [0 1 0]';
-a2.vector2OnBody1 = [1 0 0]';
-a2.vector1OnBody2 = [0 0 1]';
-a2.vector2OnBody2 = [1 0 0]';
-a2.constraintName = 'Translational joint b/w axis and base';
+a2.vector1OnBody1 = [1 0 0]';
+a2.vector2OnBody1 = [0 0 1]';
+a2.vector1OnBody2 = [0 1 0]';
+a2.vector2OnBody2 = [0 0 1]';
+a2.constraintName = 'Translational joint b/w axis and collar';
 
 sys.addJoint('translational',a2);
 
-%% Define revolute joint between axis and right rod
+%% Define revolute joint between axis and right ball
 %   body1 = first body in joint
 %   body2 = second body in joint
 %   pointOnBody1 = 3D location of the spherical joint on body1
@@ -176,12 +153,12 @@ sys.addJoint('translational',a2);
 %   plane on body1.
 a3.body1 = 2;
 a3.body2 = 3;
-a3.pointOnBody1 = [0.05 0 0.5]';
-a3.pointOnBody2 = [0 0 0.5]';
+a3.pointOnBody1 = [0.0 0 0]';
+a3.pointOnBody2 = [-0.16 0 0]';
 a3.vector1OnBody1 = [1 0 0]';
-a3.vector2OnBody1 = [0 0 1]';
-a3.vectorOnBody2 = [0 1 0]';
-a3.constraintName = 'Revolute Joint b/w right rod and Axis';
+a3.vector2OnBody1 = [0 1 0]';
+a3.vectorOnBody2 = [0 0 1]';
+a3.constraintName = 'Revolute Joint b/w right ball and Axis';
 
 sys.addJoint('revolute',a3);
             
@@ -198,27 +175,54 @@ sys.addJoint('revolute',a3);
 %   plane on body1.
 a4.body1 = 2;
 a4.body2 = 4;
-a4.pointOnBody1 = [-0.05 0 0.5]';
-a4.pointOnBody2 = [0 0 0.5]';
+a4.pointOnBody1 = [0.0 0 0]';
+a4.pointOnBody2 = [0.16 0 0]';
 a4.vector1OnBody1 = [1 0 0]';
-a4.vector2OnBody1 = [0 0 1]';
-a4.vectorOnBody2 = [0 1 0]';
-a4.constraintName = 'Revolute Joint b/w left rod and Axis';
+a4.vector2OnBody1 = [0 1 0]';
+a4.vectorOnBody2 = [0 0 1]';
+a4.constraintName = 'Revolute Joint b/w left ball and Axis';
 
 sys.addJoint('revolute',a4);
 
+%% Add distance constraint between right ball and collar
+a5.bodyI = 3;
+a5.bodyJ = 5;
+a5.sBarIP = [-0.08 0 0]';
+a5.sBarJQ = [0 0 0]';
+a5.ft = @(t)0.10922^2;
+a5.ftDot = @(t)0;
+a5.ftDDot = @(t)0;
+a5.constraintName = 'dist constraint b/w ball and collar';
+
+isKinematic = 1;
+sys.addBasicConstraint(isKinematic,'d',a5);
+
+%% Add distance constraint between left ball and collar.
+a6.bodyI = 4;
+a6.bodyJ = 5;
+a6.sBarIP = [0.08 0 0]';
+a6.sBarJQ = [0 0 0]';
+a6.ft = @(t)0.10922^2;
+a6.ftDot = @(t)0;
+a6.ftDDot = @(t)0;
+a6.constraintName = 'dist constraint b/w ball and collar';
+
+isKinematic = 1;
+sys.addBasicConstraint(isKinematic,'d',a6);
+
 %% Add driving constraint to model
-% DP1 constraint between X axis of ground and y axis of body 1.
-a5.bodyJ = 1;
-a5.bodyI = 2;
-a5.aBarJ = [1 0 0]';
-a5.aBarI = [0 1 0]';
-a5.ft = @(t)cos(2*pi*t + pi/2 + 0.0001);
-a5.ftDot = @(t)(-2*pi*sin(pi/2 + 2*pi*t + 0.0001));
-a5.ftDDot = @(t)(-4*pi^2*cos(pi/2 + 2*pi*t + 0.0001));
-a5.constraintName = 'DP1 driving constraint';
+% DP1 constraint between X axis of ground and z axis of shaft
+% This is just for testing.
+a7.bodyJ = 1;
+a7.bodyI = 2;
+a7.aBarJ = [1 0 0]';
+a7.aBarI = [0 0 1]';
+a7.ft = @(t)cos(4*pi*t + pi/2 + 0.0001);
+a7.ftDot = @(t)(-4*pi*sin(pi/2 + 4*pi*t + 0.0001));
+a7.ftDDot = @(t)(-16*pi^2*cos(pi/2 + 4*pi*t + 0.0001));
+a7.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
-sys.addBasicConstraint(isKinematic,'dp1',a5);
+sys.addBasicConstraint(isKinematic,'dp1',a7);
 
 %% Set initial conditions of each body
 % if exist('flyballGovernorSetup.mat')
@@ -226,10 +230,10 @@ sys.addBasicConstraint(isKinematic,'dp1',a5);
 % else
 alpha = 30;
 r1Initial = zeros(3,1); % Ground
-r2Initial = [0.0; 0.0; 0.5]; % Axis
-r3Initial = [0.05 + 0.5*sind(90-alpha); 0.0; 1 - 0.5*cosd(90-alpha)]; % Right rod
-r4Initial = [-0.05 - 0.5*sind(90-alpha); 0.0; 1 - 0.5*cosd(90-alpha)]; % Left rod
-r5Initial = [0; 0; 0.5]; % Base
+r2Initial = [0; 0.2; 0]; % Axis
+r3Initial = [0.16*sind(45); 0.2 - 0.16*cosd(45); 0]; % Right rod
+r4Initial = [-0.16*sind(45); 0.2 - 0.16*cosd(45); 0]; % Left rod
+r5Initial = [0; 0.05; 0]; % Base
 rInitial = [r1Initial; r2Initial; r3Initial; r4Initial; r5Initial];
 
 % Initial orientation
@@ -240,15 +244,17 @@ p1 = [1.0 0.0 0.0 0.0]';
 p2 = [1 0 0 0]';
 
 % Right rod
-A3 = [cosd(90-alpha) 0 -cosd(alpha);
-    0 1 0;
-    sind(90-alpha) 0 sind(alpha)];
+s45 = sind(45);
+c45 = cosd(45);
+A3 = [c45 c45 0;
+    -s45 s45 0;
+    0 0 1];
 p3 = simEngine3DUtilities.A2p(A3);
 
 % Left rod
-A4 = [cosd(90-alpha) 0 cosd(alpha);
-    0 1 0;
-    -sind(90-alpha) 0 sind(alpha)];
+A4 = [c45 -c45 0;
+    s45 s45 0;
+    0 0 1];
 p4 = simEngine3DUtilities.A2p(A4);
 
 % Base
@@ -277,12 +283,12 @@ sys.computeAndSetInitialVelocities([], [], []);
 
 %% Plot starting configuration of system
 sys.plot(1);
-view([0 0])
+view([2])
 
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 1;
+    timeEnd = 10;
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
@@ -291,15 +297,15 @@ if 1
     tic;
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintFlag);
     analysisTime = toc;
-    save('flyballGovernor.mat','sys');
+    save('flyballGovernorFromText.mat','sys');
 else
-    load('flyballGovernor.mat')
+    load('flyballGovernorFromText.mat')
 end
 
-disp(['Analysis for flyballGovernor took ' num2str(analysisTime) ' seconds.'])
+disp(['Analysis for flyballGovernorFromText took ' num2str(analysisTime) ' seconds.'])
 
 %% Animate results
-plot.animateSystem(sys,[0,0])
+plot.animateSystem(sys,[0 90])
 
 %% Plot the position, velocity, and acceleration of the base vs time
 sliderPosition = sys.myBodies{5}.myRTotal;
