@@ -41,6 +41,7 @@ classdef body < handle
         myConstraintTorquesTotal; % Torques applied to this body due to each constraint in system throughout the entire simulation.
         myConstraintTorquesOmegaTotal; % Torques in r-omega formulation applied to this body due to each constraint in system throughout the entire simulation.
         myTorques; % Torques applied to this body.
+        myVariableTorques; % Variables torques applied to this body that depend on time and the system state.
         myTorqueHat; % torqueHat vector for this specific body. This value 
                      % depends on the current orientation of the body, so 
                      % it is only computed when the user requests it.
@@ -55,6 +56,7 @@ classdef body < handle
         myNumTimeSteps; % Total number of time steps
         myNumForces ; % Number of active forces being applied to this body.
         myNumTorques; % Number of active toruqes being appliced to this body.
+        myNumVariableTorques; % Number of variable torques applied to this body.
         myTotalForce; % 3x1 vector containing the sum of all the forces applied to the body.
     end
     
@@ -200,6 +202,21 @@ classdef body < handle
             obj.myForces{nForces + 1}.pointOfApplication = sBar;
             obj.myForces{nForces + 1}.name = forceName;
         end
+        function obj = addVariableTorque(obj, torqueFunction, torqueName)
+            % Add a torque that depends on time and/or the system state
+            % to this body.
+            %
+            % Function inputs:
+            % torqueFunction : MATLAB function
+            %   Function that defines the applied torque w.r.t. the state
+            %   of the multibody system and time. 
+            %
+            % torqueName : string
+            %   Name of this torque.
+            nVariableTorques = obj.myNumVariableTorques;
+            obj.myVariableTorques{nVariableTorques + 1}.function = torqueFunction;
+            obj.myVariableTorques{nVariableTorques + 1}.name = torqueName;
+        end
         function obj = addTorque(obj, torque, torqueName)
             % Add a torque to this body.
             %
@@ -246,6 +263,15 @@ classdef body < handle
                     torqueSum = torqueSum + torque;                
             end
             
+            % Compute the torque due to any variable torques in the system.
+            nVarTorques = obj.myNumVariableTorques;
+            if (nVarTorques > 0)
+                for iV = 1:nVarTorques
+                    torqueFunction = obj.myVariableTorques{iV}.function;
+                    torque = torqueFunction(sys,time);
+                    torqueSum = torqueSum + torque;
+                end
+            end
             % Check if any TSDAs exist in the system. If they do, check to 
             % see if they are attached to this body. If they are, loop
             % through those and compute the torque due to the TSDA. Then,
@@ -526,6 +552,9 @@ classdef body < handle
                 forceTotal = forceTotal + obj.myForces{iF}.force;
             end
             myTotalForce = forceTotal;           
+        end
+        function myNumVariableTorques = get.myNumVariableTorques(obj)
+            myNumVariableTorques = length(obj.myVariableTorques);
         end
     end
     

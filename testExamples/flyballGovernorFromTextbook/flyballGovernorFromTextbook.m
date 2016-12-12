@@ -91,6 +91,14 @@ s1.actuatorFunction = @(lij, lijDot, t)0;
 s1.name = 'Spring-Damper Element b/w body 2 and 5';
 sys.addTSDA(s1);
 
+%% Add a variable torques to apply to the axis.
+if 1
+    torqueFunction1 = @Ts;
+    torqueFunction2 = @Te;
+    sys.addVariableTorque(2, torqueFunction1, 'Ts');
+    sys.addVariableTorque(2, torqueFunction2, 'Te');
+end
+
 %% Define important points and vectors in the system
 sys.addPoint(2, [0 -0.2 0]', 'base');
 sys.addPoint(2, [0 0 0]', 'top');
@@ -213,26 +221,31 @@ sys.addBasicConstraint(isKinematic,'d',a6);
 %% Add driving constraint to model
 % DP1 constraint between X axis of ground and z axis of shaft
 % This is just for testing.
-a7.bodyJ = 1;
-a7.bodyI = 2;
-a7.aBarJ = [1 0 0]';
-a7.aBarI = [0 0 1]';
-a7.ft = @(t)cos(4*pi*t + pi/2 + 0.0001);
-a7.ftDot = @(t)(-4*pi*sin(pi/2 + 4*pi*t + 0.0001));
-a7.ftDDot = @(t)(-16*pi^2*cos(pi/2 + 4*pi*t + 0.0001));
-a7.constraintName = 'DP1 driving constraint';
-isKinematic = 0;
-sys.addBasicConstraint(isKinematic,'dp1',a7);
+% a7.bodyJ = 1;
+% a7.bodyI = 2;
+% a7.aBarJ = [1 0 0]';
+% a7.aBarI = [0 0 1]';
+% a7.ft = @(t)cos(11.0174*t + pi/2 + 0.0001);
+% a7.ftDot = @(t)(-11.0174*sin(pi/2 + 11.0174*t + 0.0001));
+% a7.ftDDot = @(t)(-(11.0174)^2*cos(pi/2 + 11.0174*t + 0.0001));
+% a7.constraintName = 'DP1 driving constraint';
+% isKinematic = 0;
+% sys.addBasicConstraint(isKinematic,'dp1',a7);
 
 %% Set initial conditions of each body
 % if exist('flyballGovernorSetup.mat')
 %     load('flyballGovernorSetup.mat')
 % else
-alpha = 30;
+% alpha = 30;
+% r1Initial = zeros(3,1); % Ground
+% r2Initial = [0; 0.2; 0]; % Axis
+% r3Initial = [0.16*sind(45); 0.2 - 0.16*cosd(45); 0]; % Right rod
+% r4Initial = [-0.16*sind(45); 0.2 - 0.16*cosd(45); 0]; % Left rod
+% r5Initial = [0; 0.05; 0]; % Base
 r1Initial = zeros(3,1); % Ground
 r2Initial = [0; 0.2; 0]; % Axis
-r3Initial = [0.16*sind(45); 0.2 - 0.16*cosd(45); 0]; % Right rod
-r4Initial = [-0.16*sind(45); 0.2 - 0.16*cosd(45); 0]; % Left rod
+r3Initial = [0.11314; 0.08686; 0]; % Right rod
+r4Initial = [-0.11314; 0.08686; 0]; % Left rod
 r5Initial = [0; 0.05; 0]; % Base
 rInitial = [r1Initial; r2Initial; r3Initial; r4Initial; r5Initial];
 
@@ -244,18 +257,20 @@ p1 = [1.0 0.0 0.0 0.0]';
 p2 = [1 0 0 0]';
 
 % Right rod
-s45 = sind(45);
-c45 = cosd(45);
-A3 = [c45 c45 0;
-    -s45 s45 0;
-    0 0 1];
-p3 = simEngine3DUtilities.A2p(A3);
+% s45 = sind(45);
+% c45 = cosd(45);
+% A3 = [c45 c45 0;
+%     -s45 s45 0;
+%     0 0 1];
+% p3 = simEngine3DUtilities.A2p(A3);
+p3 = [-0.9239 0 0 0.3827]';
 
 % Left rod
-A4 = [c45 -c45 0;
-    s45 s45 0;
-    0 0 1];
-p4 = simEngine3DUtilities.A2p(A4);
+% % A4 = [c45 -c45 0;
+% %     s45 s45 0;
+% %     0 0 1];
+% % p4 = simEngine3DUtilities.A2p(A4);
+p4 = [0.9239 0 0 0.3827]';
 
 % Base
 p5 = [1 0 0 0]';
@@ -267,15 +282,15 @@ assemblyAnalysisFlag = 1;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
  
 % Initial velocities. Initial velocity known for crank.
-% known = 2;
-% knownInitialRDot = [0; 0; 0];
-% knownInitialOmegaBar = [0; 0; 2*pi];
-% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
-% 
-% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+known = 2;
+knownInitialRDot = [0; 0; 0];
+knownInitialOmegaBar = [0; 11.0174; 0];
+knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
+
+sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
 
 % Use the next command if you are prescribing a driving constraint.
-sys.computeAndSetInitialVelocities([], [], []);
+% sys.computeAndSetInitialVelocities([], [], []);
 
 
 %     save('flyballGovernorSetup.mat','sys');
@@ -288,8 +303,8 @@ view([2])
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 10;
-    timeStep = 10^-2;
+    timeEnd = 5;
+    timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
     velocityConstraintFlag = 0;
@@ -311,93 +326,89 @@ plot.animateSystem(sys,[0 90])
 sliderPosition = sys.myBodies{5}.myRTotal;
 sliderVelocity = sys.myBodies{5}.myRDotTotal;
 sliderAccel = sys.myBodies{5}.myRDDotTotal;
-time = sys.myBodies{4}.myTimeTotal;
+time = sys.myBodies{5}.myTimeTotal;
 
+% Plot zoomed in version of slider position
+sliderPositionCM = sliderPosition*100;
 figure
-subplot(3,1,1)
 hold on
-plot(time,sliderPosition(1,:))
-plot(time,sliderPosition(2,:))
-plot(time,sliderPosition(3,:))
+plot(time,sliderPositionCM(1,:))
+plot(time,sliderPositionCM(2,:))
+plot(time,sliderPositionCM(3,:))
 legend('x','y','z')
+% axis([timeStart timeEnd 4.6 5.1])
 xlabel('Time (sec)')
-ylabel('Position (m)')
-title('Slider')
+ylabel('Position (cm)')
+title('Slider Position')
 hold off
 
+% figure
+% subplot(3,1,1)
+% hold on
+% plot(time,sliderPosition(1,:))
+% plot(time,sliderPosition(2,:))
+% plot(time,sliderPosition(3,:))
+% legend('x','y','z')
+% xlabel('Time (sec)')
+% ylabel('Position (m)')
+% title('Slider')
+% hold off
+% 
+% 
+% subplot(3,1,2)
+% hold on
+% plot(time,sliderVelocity(1,:))
+% plot(time,sliderVelocity(2,:))
+% plot(time,sliderVelocity(3,:))
+% legend('x','y','z')
+% xlabel('Time (sec)')
+% ylabel('Velocity (m/s)')
+% title('Slider')
+% hold off
+% 
+% 
+% subplot(3,1,3)
+% hold on
+% plot(time,sliderAccel(1,:))
+% plot(time,sliderAccel(2,:))
+% plot(time,sliderAccel(3,:))
+% % axis([0 1 -3 5])
+% legend('x','y','z')
+% xlabel('Time (sec)')
+% ylabel('Acceleration (m/s^2)')
+% title('Slider')
+% hold off
 
-subplot(3,1,2)
-hold on
-plot(time,sliderVelocity(1,:))
-plot(time,sliderVelocity(2,:))
-plot(time,sliderVelocity(3,:))
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-title('Slider')
-hold off
 
+%% Plot the angular velocity of the shaft versus time
+pForShaft = sys.myBodies{2}.myPTotal;
+pDotForShaft = sys.myBodies{2}.myPDotTotal;
+time = sys.myBodies{2}.myTimeTotal;
 
-subplot(3,1,3)
-hold on
-plot(time,sliderAccel(1,:))
-plot(time,sliderAccel(2,:))
-plot(time,sliderAccel(3,:))
-% axis([0 1 -3 5])
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-title('Slider')
-hold off
+% Convert pDot to omegaBar
+omegaBar = zeros(3,length(time));
+for iT = 1:length(time)
+    % Compute the current G matrix for the body
+    p = pForShaft(:,iT);
+    e0 = p(1);
+    e = p(2:4);
+    eTilde = simEngine3DUtilities.skewSym(e);
+    G2 = -eTilde + e0*eye(3,3);
+    G = [-e, G2];
+    
+    % Compute omageBar
+    pDot = pDotForShaft(:,iT);
+    omegaBar(:,iT) = 2*G*pDot;
+end
 
-
-%% Plot the position, velocity, and acceleration of one side rod vs time
-rodPosition = sys.myBodies{3}.myRTotal;
-rodVelocity = sys.myBodies{3}.myRDotTotal;
-rodAccel = sys.myBodies{3}.myRDDotTotal;
-time = sys.myBodies{3}.myTimeTotal;
-
+% Plot omegaBar versus time
 figure
-subplot(3,1,1)
 hold on
-plot(time,rodPosition(1,:))
-plot(time,rodPosition(2,:))
-plot(time,rodPosition(3,:))
-legend('x','y','z')
+plot(time,omegaBar(1,:));
+plot(time,omegaBar(2,:));
+plot(time,omegaBar(3,:));
+% axis([timeStart timeEnd 10.1 11.1])
 xlabel('Time (sec)')
-ylabel('Position (m)')
-title('Rod')
-hold off
-
-
-subplot(3,1,2)
-hold on
-plot(time,rodVelocity(1,:))
-plot(time,rodVelocity(2,:))
-plot(time,rodVelocity(3,:))
+ylabel('\omega (rad/sec)');
 legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-title('Rod')
-hold off
-
-
-subplot(3,1,3)
-hold on
-plot(time,rodAccel(1,:))
-plot(time,rodAccel(2,:))
-plot(time,rodAccel(3,:))
-% axis([0 1 -3 5])
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-title('Rod')
-hold off
-
-
-
-
-
-
-
-
+title('Angular velocity of shaft')

@@ -169,6 +169,28 @@ classdef multibodySystem < handle
             
             obj.myBodies{bodyNumber}.addForce(force, sBar, forceName);
         end
+        function obj = addVariableTorque(obj, bodyNumber, torqueFunction, torqueName)
+            % Add torque that is defined by a function to a specific body
+            % in the multibody system.
+            % 
+            % Function inputs
+            % bodyNumber : int
+            %   Body to which you want to apply this torque.
+            %
+            % torqueFunction : MATLAB function
+            %   Function that defines the applied torque w.r.t. the state
+            %   of the multibody system and time. 
+            %
+            % torqueName : string
+            %   Name of this torque. Optional input.
+            nTorques = obj.myBodies{bodyNumber}.myNumVariableTorques;
+            
+            if nargin < 4
+                torqueName = ['Variable Torque ' num2str(nTorques+1) ' on body ' num2str(bodyNumber) ];
+            end
+            
+            obj.myBodies{bodyNumber}.addVariableTorque(torqueFunction, torqueName);
+        end        
         function obj = addTorque(obj, bodyNumber, torque, torqueName)
             % Add a torque to a specific body in the multibody system
             %
