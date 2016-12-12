@@ -278,7 +278,7 @@ p5 = [1 0 0 0]';
 pInitial = [p1; p2; p3; p4; p5];
 
 t = 0;
-assemblyAnalysisFlag = 1;
+assemblyAnalysisFlag = 0;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
  
 % Initial velocities. Initial velocity known for crank.
@@ -303,7 +303,7 @@ view([2])
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 5;
+    timeEnd = 10;
     timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
@@ -312,12 +312,12 @@ if 1
     tic;
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintFlag);
     analysisTime = toc;
-    save('flyballGovernorFromText.mat','sys');
+    save('flyballGovernorFromText_k1000_C7500.mat','sys');
 else
-    load('flyballGovernorFromText.mat')
+    load('flyballGovernorFromText_k1000_C7500.mat')
 end
 
-disp(['Analysis for flyballGovernorFromText took ' num2str(analysisTime) ' seconds.'])
+disp(['Analysis for flyballGovernorFromText_k1000_C7500 took ' num2str(analysisTime) ' seconds.'])
 
 %% Animate results
 plot.animateSystem(sys,[0 90])
@@ -336,7 +336,7 @@ plot(time,sliderPositionCM(1,:))
 plot(time,sliderPositionCM(2,:))
 plot(time,sliderPositionCM(3,:))
 legend('x','y','z')
-% axis([timeStart timeEnd 4.6 5.1])
+axis([timeStart timeEnd 4.6 5.1])
 xlabel('Time (sec)')
 ylabel('Position (cm)')
 title('Slider Position')
@@ -407,7 +407,7 @@ hold on
 plot(time,omegaBar(1,:));
 plot(time,omegaBar(2,:));
 plot(time,omegaBar(3,:));
-% axis([timeStart timeEnd 10.1 11.1])
+axis([timeStart timeEnd 10.1 11.1])
 xlabel('Time (sec)')
 ylabel('\omega (rad/sec)');
 legend('x','y','z')

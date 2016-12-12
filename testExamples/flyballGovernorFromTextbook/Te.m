@@ -5,7 +5,7 @@ function [ torque ] = Te( sys, time )
 % Extract the current y-position of the collar
 if (time < 1)
     torqueY = 0;
-elseif (time >=1) || (time < 2)
+elseif (time >=1) && (time < 2)
     torqueY = -25*time + 25;
 else
     torqueY = -25;
