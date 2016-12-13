@@ -766,7 +766,7 @@ classdef multibodySystem < handle
             
             % Set variables for convergence
             maxIter = 50;
-            tolerance = 1e-3;
+            tolerance = 1e-6;
             
             % Set the intial guess for the accelerations and lagrange
             % multipliers. These will be the state of the system at the
@@ -913,7 +913,6 @@ classdef multibodySystem < handle
             %   Vector containing the current guess for z. For this finite
             %   difference approximation of psi to be accurate, z must be a
             %   "healthy" set of generalized coordinates and constraints.
-            
             delta = 10^-3;
             
             finiteDiffPsi = zeros(length(zGuess),length(zGuess));
@@ -2292,7 +2291,7 @@ classdef multibodySystem < handle
             end
             
             % Obtain torqueHat vector
-            obj.computeTorqueHatVector();
+            obj.computeTorqueHatVector(time);
             torqueHatVec = obj.myTorqueHatVector;
             
             % Obtain JpMatrix
@@ -2561,8 +2560,7 @@ classdef multibodySystem < handle
             end
             
             qGuess = [rInitVec; pInitVec];
-            
-            
+
             % Use Newton-Raphson method to compute q
             maxIter = 50;
             tol = 1e-9;
