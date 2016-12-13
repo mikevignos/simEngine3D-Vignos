@@ -106,9 +106,7 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-        sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
-%     sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, 0);;
     dynamicsAnalysisTime = toc;
     save('testRevoluteJoint.mat','sys');
 else

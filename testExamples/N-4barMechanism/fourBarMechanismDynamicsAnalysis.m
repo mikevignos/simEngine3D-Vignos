@@ -104,7 +104,7 @@ sys.addBasicConstraint(isKinematic,'cd',a3);
 a4.bodyI = 3;
 a4.bodyJ = 4;
 a4.coordVec = [0 1 0]';
-a4.sBarIP = [0 0.5 0]';
+a4.sBarIP = [0 -0.5 0]';
 a4.sBarJQ = [0 0.5 0]';
 a4.ft = @(t)0;
 a4.ftDot = @(t)0;
@@ -171,11 +171,10 @@ if 1
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
+    velocityConstraintViolationFlag = 0;
     method = 'quasiNewton';
     tic;
-    %         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    %         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     analysisTime = toc;
     save('fourBarMechanismDynamicsAnalysis.mat','sys');
 else

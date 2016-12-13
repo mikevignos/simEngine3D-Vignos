@@ -16,10 +16,10 @@ gravityDirection = '-y';
 sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
 % Add body2. The is the mass.
-length2 = 0.0; % meters. This is actually the radius of the wheel.
+length2 = 0.0; % meters
 mass2 = 1.0; % kg
 
-% Define inertial properties of the wheel
+% Define inertial properties of the mass
 Jxx = 0.0;
 Jyy = 0.0;
 Jzz = 0.0;
@@ -85,7 +85,7 @@ sys.addForce(2,[0 0 1]', [0 0 0]', 'Force');
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 10.0;
+    timeEnd = 20.0;
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
@@ -119,3 +119,44 @@ hold on
 plot(time,massPosition(3,:));
 title('Z-position')
 hold off
+
+%% Plot mass acceleration
+massPosition = sys.myBodies{2}.myRTotal;
+massVel = sys.myBodies{2}.myRDotTotal;
+massAccel = sys.myBodies{2}.myRDDotTotal;
+time = sys.myBodies{2}.myTimeTotal;
+
+figure
+subplot(3,1,1)
+plot(time,massPosition(3,:));
+ylabel('Position (m)')
+title('Position, Velocity, and Acceleration of Mass in Z-Direction')
+
+subplot(3,1,2)
+plot(time,massVel(3,:));
+ylabel('Velocity (m/s)')
+
+subplot(3,1,3)
+plot(time,massAccel(3,:));
+ylabel('Acceleration (m/s^2)')
+xlabel('Time (sec)')
+hold off
+
+
+%% Compare the results to the benchmark results
+benchmark = dlmread('A01_solution_data.txt','\t',1,0);
+benchmarkTime = benchmark(:,1);
+position = benchmark(:,2:3);
+massPosition = sys.myBodies{2}.myRTotal;
+time = sys.myBodies{2}.myTimeTotal;
+
+figure
+hold on
+plot(time,massPosition(1,:),'r');
+plot(time,massPosition(2,:),'b');
+plot(benchmarkTime(1:41), position(1:41,1),'rs')
+plot(benchmarkTime(1:41), position(1:41,2),'bs')
+xlabel('Time (sec','FontSize',16)
+ylabel('Position (m)','FontSize',16);
+legend('Simulation X','Simulation Y','Benchmark X','Benchmark Y')
+set(gca,'FontSize',12)

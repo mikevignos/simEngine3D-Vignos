@@ -156,7 +156,7 @@ sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 10.0;
+    timeEnd = 20.0;
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
