@@ -78,6 +78,9 @@ a1.constraintName = 'Cylindrical Joint b/w Ground and Mass';
 
 sys.addJoint('cylindrical',a1);
 
+%% Add force to point mass in z-direction
+sys.addForce(2,[0 0 1]', [0 0 0]', 'Force');
+
 
 %% Perform analysis
 if 1
@@ -90,7 +93,7 @@ if 1
     tic;
 %         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
 %         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, 0);
     analysisTime = toc;
     save('simplePendulum.mat','sys');
 else
@@ -107,6 +110,12 @@ figure
 hold on
 plot(time,massPosition(1,:));
 plot(time,massPosition(2,:));
+legend('x','y')
+hold off
+
+
+figure
+hold on
 plot(time,massPosition(3,:));
-legend('x','y','z')
+title('Z-position')
 hold off

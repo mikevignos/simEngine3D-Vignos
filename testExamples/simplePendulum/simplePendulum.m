@@ -1,4 +1,3 @@
-%% sliderCrankMechanism.m
 %% simplePendulum.m
 % Taken from: http://lim.ii.udc.es/mbsbenchmark/dist/A01/A01_specification.xml.
 clear; close all; clc;
@@ -19,10 +18,10 @@ sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 length2 = 0.0; % meters. This is actually the radius of the wheel.
 mass2 = 1.0; % kg
 
-% Define inertial properties of the wheel
-Jxx = 0.0;
-Jyy = 0.0;
-Jzz = 0.0;
+% Define inertial properties of the mass
+Jxx = 0.1;
+Jyy = 0.1;
+Jzz = 0.1;
 JMatrix2 = zeros(3,3);
 JMatrix2(1,1) = Jxx;
 JMatrix2(2,2) = Jyy;
@@ -30,6 +29,18 @@ JMatrix2(3,3) = Jzz;
 
 isGround2 = 0;
 sys.addBody(2, 'point', isGround2, mass2, length2, JMatrix2, gravityDirection);
+
+%% Define revolute joint between ground and point mass
+a1.body1 = 1;
+a1.body2 = 2;
+a1.pointOnBody1 = [0 0 0]';
+a1.pointOnBody2 = [1 0 0]';
+a1.vector1OnBody1 = [1 0 0]';
+a1.vector2OnBody1 = [0 1 0]';
+a1.vectorOnBody2 = [0 0 1]';
+a1.constraintName = 'Revolute Joint b/w Ground and Mass';
+
+sys.addJoint('revolute',a1);
 
 %% Set initial conditions of each body
 r1Initial = zeros(3,1); % Ground
@@ -56,19 +67,6 @@ sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 %% Plot starting configuration of system
 sys.plot(1);
 
-%% Define revolute joint between ground and point mass
-a1.body1 = 1;
-a1.body2 = 2;
-a1.pointOnBody1 = [0 0 0]';
-a1.pointOnBody2 = [1 0 0]';
-a1.vector1OnBody1 = [1 0 0]';
-a1.vector2OnBody1 = [0 1 0]';
-a1.vectorOnBody2 = [0 0 1]';
-a1.constraintName = 'Revolute Joint b/w Ground and Mass';
-
-sys.addJoint('revolute',a1);
-
-
 %% Perform analysis
 if 1
     timeStart = 0;
@@ -76,11 +74,10 @@ if 1
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
+    velocityConstraintViolationFlag = 0;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     analysisTime = toc;
     save('simplePendulum.mat','sys');
 else
@@ -88,6 +85,9 @@ else
 end
 
 disp(['Dynamics Analysis for simplePendulum took ' num2str(analysisTime) ' seconds.'])
+
+%% Animate system
+plot.animateSystem(sys, [0 90]);
 
 %% Plot the position of point mass versus time
 massPosition = sys.myBodies{2}.myRTotal;
