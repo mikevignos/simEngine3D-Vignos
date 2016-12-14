@@ -1,5 +1,5 @@
 %% sliderCrankMechanism.m
-% Taken from ch. 12.3 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
+% Taken from ch. 12.3 section Edward J. Haug: Computer Aided Kinematics and Dynamics of
 % Mechanical Systems (Allyn and Bacon, 1989)
 % Used to test the combinaton of a revolute, universal, and spherical joint.  .
 clear; close all; clc;
@@ -86,8 +86,8 @@ sys.addJoint('revolute',a1);
 
 %% Define universal joint between wheel and first link
 necessaryAttributes = [{'body1'} {'body2'} {'pointOnBody1'} ...
-                 {'pointOnBody2'} {'vectorOnBody1'} {'vectorOnBody2'}];
-            
+    {'pointOnBody2'} {'vectorOnBody1'} {'vectorOnBody2'}];
+
 a2.body1 = 2;
 a2.body2 = 3;
 a2.pointOnBody1 = [0.0 0.0 2.0]';
@@ -102,7 +102,7 @@ sys.addJoint('universal',a2);
 a3.body1 = 3;
 a3.body2 = 4;
 a3.pointOnBody1 = [0.0 -6.1 0.0]';
-a3.pointOnBody2 = [0.0 -3.7 0.0]';  
+a3.pointOnBody2 = [0.0 -3.7 0.0]';
 a3.constraintName = 'Spherical joint b/w links';
 
 sys.addJoint('spherical',a3);
@@ -124,43 +124,38 @@ sys.addJoint('revolute',a4);
 sys.addTorque(2, [10 0 0]', 'Torque applied to wheel');
 
 %% Set initial conditions of each body
-if exist('uniqueFourBarMechanismNoDrivingConstraint.mat')
-    load('uniqueFourBarMechanismNoDrivingConstraint.mat')
-else
-    r1Initial = zeros(3,1); % Ground
-    r2Initial = [0.0; 0.0; 0.0]; % Wheel
-    r3Initial = [-3.75; -4.25; 4.25]; % Link1
-    r4Initial = [-5.75; -8.5; 3.25]; % Link2
-    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-    
-    % Initial orientation
-    % Ground
-    p1 = [1.0 0.0 0.0 0.0]';
-    
-    % Wheel
-    p2 = [1.0 0.0 0.0 0.0]';
-    
-    % Link1
-    p3 = [0.8806 -0.29 -0.27 -0.26]';
-    
-    % Link2
-    p4 =  [0.6072 -0.36 0.36 -0.61]';
-    
-    pInitial = [p1; p2; p3; p4];
-    
-    assemblyAnalysisFlag = 1;
-    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-    
-    % Initial velocities
-    % known = 2;
-    % knownInitialRDot = zeros(3,1);
-    % knownInitialOmegaBar = [2*pi; 0; 0];
-    % knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
-    
-    % sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-    sys.computeAndSetInitialVelocities([], [], []);
-    save('uniqueFourBarMechanismNoDrivingConstraint.mat','sys');
-end
+r1Initial = zeros(3,1); % Ground
+r2Initial = [0.0; 0.0; 0.0]; % Wheel
+r3Initial = [-3.75; -4.25; 4.25]; % Link1
+r4Initial = [-5.75; -8.5; 3.29]; % Link2
+rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+
+% Initial orientation
+% Ground
+p1 = [1.0 0.0 0.0 0.0]';
+
+% Wheel
+p2 = [1.0 0.0 0.0 0.0]';
+
+% Link1
+p3 = [0.8806 -0.29 -0.27 -0.26]';
+
+% Link2
+p4 =  [0.6072 -0.36 0.36 -0.61]';
+
+pInitial = [p1; p2; p3; p4];
+
+assemblyAnalysisFlag = 1;
+sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+
+% Initial velocities
+% known = 2;
+% knownInitialRDot = zeros(3,1);
+% knownInitialOmegaBar = [2*pi; 0; 0];
+% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, 2, knownInitialOmegaBar);
+
+% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+sys.computeAndSetInitialVelocities([], [], []);
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -169,15 +164,14 @@ view([90 0])
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 2.5;
+    timeEnd = 2;
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
+    velConstViolFlag = 0;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velConstViolFlag);
     analysisTime = toc;
     save('uniqueFourBarMechanism.mat','sys');
 else
@@ -216,15 +210,18 @@ rockerVelocity = sys.myBodies{4}.myRDotTotal;
 rockerAccel = sys.myBodies{4}.myRDDotTotal;
 
 figure
-plot(time,rockerPosition(3,:))
-xlabel('Time (sec)')
-ylabel('Z Position (m)')
-title('Rocker Z Position')
+plot(time,rockerPosition(3,:), 'LineWidth',2)
+xlabel('Time (sec)','FontSize',16)
+ylabel('Z Position (m)','FontSize',16)
+title('Rocker Z Position','FontSize',16)
+set(gca,'FontSize',12);
+axis([timeStart timeEnd 2.5 3.75])
 
 
 figure
-plot(time,rockerVelocity(3,:))
-xlabel('Time (sec)')
-ylabel('Z Velocity (m/s)')
-title('Rocker Z Velocity')
-hold off
+plot(time,rockerVelocity(3,:), 'LineWidth',2)
+xlabel('Time (sec)','FontSize',16)
+ylabel('Z Velocity (m/s)','FontSize',16)
+title('Rocker Z Velocity','FontSize',16)
+set(gca,'FontSize',12);
+axis([timeStart timeEnd -3 3])

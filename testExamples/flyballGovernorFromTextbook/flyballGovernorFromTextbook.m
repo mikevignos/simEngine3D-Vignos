@@ -278,7 +278,7 @@ p5 = [1 0 0 0]';
 pInitial = [p1; p2; p3; p4; p5];
 
 t = 0;
-assemblyAnalysisFlag = 0;
+assemblyAnalysisFlag = 1;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
  
 % Initial velocities. Initial velocity known for crank.

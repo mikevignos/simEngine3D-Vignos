@@ -91,7 +91,7 @@ isGround5 = 0;
 sys.addBody(5, 'block', isGround5, mass5, length5, JMatrix5, gravityDirection);
 
 %% Add TSDAs to the system
-factor = 1e3;
+factor = 1e5;
 s1.bodyI = 3;
 s1.bodyJ = 5;
 s1.sBarIP = [0 0 0]';

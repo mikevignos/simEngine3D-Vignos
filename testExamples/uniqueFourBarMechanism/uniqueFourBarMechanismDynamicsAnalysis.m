@@ -1,5 +1,5 @@
 %% sliderCrankMechanism.m
-% Taken from ch. 12.3 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
+% Taken from ch. 12.3 section Edward J. Haug: Computer Aided Kinematics and Dynamics of
 % Mechanical Systems (Allyn and Bacon, 1989)
 % Used to test the combinaton of a revolute, universal, and spherical joint.  .
 clear; close all; clc;
@@ -84,7 +84,7 @@ a1.constraintName = 'Revolute Joint b/w Ground and Wheel';
 
 sys.addJoint('revolute',a1);
 
-%% Define universal joint between wheel and first link           
+%% Define universal joint between wheel and first link
 a2.body1 = 2;
 a2.body2 = 3;
 a2.pointOnBody1 = [0.0 0.0 2.0]';
@@ -99,7 +99,7 @@ sys.addJoint('universal',a2);
 a3.body1 = 3;
 a3.body2 = 4;
 a3.pointOnBody1 = [0.0 -6.1 0.0]';
-a3.pointOnBody2 = [0.0 -3.7 0.0]';  
+a3.pointOnBody2 = [0.0 -3.7 0.0]';
 a3.constraintName = 'Spherical joint b/w links';
 
 sys.addJoint('spherical',a3);
@@ -122,41 +122,37 @@ a5.bodyI = 2;
 a5.aBarJ = [0 1 0]';
 a5.aBarI = [0 0 1]';
 a5.ft = @(t)cos(pi*t + pi/2 + 0.0001);
-a5.ftDot = @(t)(pi*sin(pi*t + pi/2 + 0.0001));
-a5.ftDDot = @(t)(pi^2*cos(pi*t + pi/2 + 0.0001));
+a5.ftDot = @(t)(-pi*sin(pi*t + pi/2 + 0.0001));
+a5.ftDDot = @(t)(-pi^2*cos(pi*t + pi/2 + 0.0001));
 a5.constraintName = 'DP1 driving constraint';
 isKinematic = 0;
 sys.addBasicConstraint(isKinematic,'dp1',a5);
 
 %% Set initial conditions of each body
-if exist('uniqueFourBarMechanismDynamicsAnalysis.mat')
-    load('uniqueFourBarMechanismDynamicsAnalysis.mat')
-else
-    r1Initial = zeros(3,1); % Ground
-    r2Initial = [0.0; 0.0; 0.0]; % Wheel
-    r3Initial = [-3.75; -4.25; 4.25]; % Link1
-    r4Initial = [-5.75; -8.5; 3.25]; % Link2
-    rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-    
-    % Initial orientation
-    % Ground
-    p1 = [1.0 0.0 0.0 0.0]';
-    
-    % Wheel
-    p2 = [1.0 0.0 0.0 0.0]';
-    
-    % Link1
-    p3 = [0.8806 -0.29 -0.27 -0.26]';
-    
-    % Link2
-    p4 =  [0.6072 -0.36 0.36 -0.61]';
-    
-    pInitial = [p1; p2; p3; p4];
-    
-    assemblyAnalysisFlag = 1;
-    sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
-    save('uniqueFourBarMechanismDynamicsAnalysis.mat','sys');
-end
+r1Initial = zeros(3,1); % Ground
+r2Initial = [0.0; 0.0; 0.0]; % Wheel
+r3Initial = [-3.75; -4.25; 4.25]; % Link1
+r4Initial = [-5.75; -8.5; 3.25]; % Link2
+rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
+
+% Initial orientation
+% Ground
+p1 = [1.0 0.0 0.0 0.0]';
+
+% Wheel
+p2 = [1.0 0.0 0.0 0.0]';
+
+% Link1
+p3 = [0.8806 -0.29 -0.27 -0.26]';
+
+% Link2
+p4 =  [0.6072 -0.36 0.36 -0.61]';
+
+pInitial = [p1; p2; p3; p4];
+
+assemblyAnalysisFlag = 1;
+sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
+
 % Initial velocities
 % known = 2;
 % knownInitialRDot = zeros(3,1);
@@ -177,11 +173,10 @@ if 1
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
+    velConstViolFlag = 0;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velConstViolFlag);
     analysisTime = toc;
     save('uniqueFourBarMechanism.mat','sys');
 else
@@ -208,10 +203,14 @@ end
 
 figure
 hold on
-plot(time,pointBPosition(1,:));
-plot(time,pointBPosition(2,:));
-plot(time,pointBPosition(3,:));
+plot(time,pointBPosition(1,:),'LineWidth',2);
+plot(time,pointBPosition(2,:),'LineWidth',2);
+plot(time,pointBPosition(3,:),'LineWidth',2);
 legend('x','y','z')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Position (m)','FontSize',16);
+set(gca,'FontSize',12);
+axis([timeStart timeEnd -3 3])
 hold off
 
 %% Plot the position, velocity, and acceleration of the rocker vs time
@@ -219,49 +218,50 @@ rockerPosition = sys.myBodies{4}.myRTotal;
 rockerVelocity = sys.myBodies{4}.myRDotTotal;
 rockerAccel = sys.myBodies{4}.myRDDotTotal;
 
-
 figure
 hold on
-plot(time,rockerPosition(1,:))
-plot(time,rockerPosition(2,:))
-plot(time,rockerPosition(3,:))
+plot(time,rockerPosition(1,:),'LineWidth',2)
+plot(time,rockerPosition(2,:),'LineWidth',2)
+plot(time,rockerPosition(3,:),'LineWidth',2)
 legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Position (m)')
-title('Rocker Position')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Position (m)','FontSize',16)
+set(gca,'FontSize',12);
+axis([timeStart timeEnd 2.5 4])
+% title('Rocker Position')
 hold off
 
 
 figure
 hold on
-plot(time,rockerVelocity(1,:))
-plot(time,rockerVelocity(2,:))
-plot(time,rockerVelocity(3,:))
-legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-title('Rocker Velocity')
+% plot(time,rockerVelocity(1,:),'LineWidth',2)
+% plot(time,rockerVelocity(2,:),'LineWidth',2)
+plot(time,rockerVelocity(3,:),'LineWidth',2)
+% legend('x','y','z')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Velocity (m/s)','FontSize',16)
+set(gca,'FontSize',12);
+axis([timeStart timeEnd -3 4])
+% title('Rocker Velocity')
 hold off
 
 
 figure
 hold on
-plot(time,rockerAccel(1,:))
-plot(time,rockerAccel(2,:))
-plot(time,rockerAccel(3,:))
+plot(time,rockerAccel(1,:),'LineWidth',2)
+plot(time,rockerAccel(2,:),'LineWidth',2)
+plot(time,rockerAccel(3,:),'LineWidth',2)
 legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-title('Rocker Acceleration')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Acceleration (m/s^2)','FontSize',16)
+set(gca,'FontSize',12);
+% title('Rocker Acceleration')
 hold off
 
-%% Display torque at the revolute joint 
+%% Display torque at the revolute joint
 % Extract torque for body 2 due to all constraints and time
 torque = sys.myBodies{2}.myConstraintTorquesOmegaTotal;
 time = sys.myBodies{2}.myTimeTotal;
-
-% Compute theta over time.
-theta = 2*pi*time + pi/2;
 
 % Extract torque due to DP1 driving constraint.
 DP1const = 18;
@@ -269,29 +269,17 @@ torqueDriving = torque((3*DP1const-2):3*DP1const,:);
 
 figure
 hold on
-plot(time,torqueDriving(1,:))
-plot(time,torqueDriving(2,:))
-plot(time,torqueDriving(3,:));
-xlabel('Time (sec)')
-ylabel('Torque (N*m)')
+plot(time,torqueDriving(1,:),'LineWidth',2)
+plot(time,torqueDriving(2,:),'LineWidth',2)
+plot(time,torqueDriving(3,:),'LineWidth',2);
+xlabel('Time (sec)','FontSize',16)
+ylabel('Torque (Nm)','FontSize',16)
+set(gca,'FontSize',12);
 % axis([0 1 -1 1]);
 % h2.Color = 'g';
 legend('TorqueX','TorqueY','TorqueZ')
-title('Torque Due to DP1 Driving Constraint in Pendulum Reference Frame')
-saveas(gcf,'A8P1_TorqueVsTime.png')
-
-figure
-hold on
-plot(time,torqueDriving(1,:))
-plot(time,torqueDriving(2,:))
-[ax, h1, h2] = plotyy(time,torqueDriving(3,:),time,theta);
-ax(1).YLim = [-250 250];
-xlabel('Time (sec)')
-ylabel(ax(1),'Torque (N*m)')
-ylabel(ax(2),'Theta (rad)')
-% h2.Color = 'g';
-legend('TorqueX','TorqueY','TorqueZ','Theta')
-saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')
+axis([timeStart timeEnd -150 200])
+title('Driving Torque At Point A','FontSize',16)
 
 %% Display the local reaction x force at the origin of the wheel
 force = sys.myBodies{2}.myConstraintForcesTotal;
@@ -306,10 +294,11 @@ end
 
 figure
 hold on
-plot(time, -1*reactionForceTotal(1,:))
-xlabel('Time (sec)')
-ylabel('Reaction Force (N)')
-title('Reaction Force in X-direction due to revolute joint b/w wheel and ground')
+plot(time, -1*reactionForceTotal(1,:),'LineWidth',2)
+xlabel('Time (sec)','FontSize',16)
+ylabel('Reaction Force (N)','FontSize',16)
+title('Reaction Force in X-direction At Point A','FontSize',16)
+set(gca,'FontSize',12);
 axis([0 2.5 -200 40])
 hold off
-    
+

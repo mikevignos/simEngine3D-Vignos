@@ -19,7 +19,6 @@ sys.addBody(1, 'ground', isGround1, mass1, length1, JMatrix1, gravityDirection);
 
 % Add body2. The is the crank
 length2 = 0.08; % meters.
-% length2 = 0.16; % meters.
 mass2 = 0.12; % kg
 
 % Define inertial properties of the crank
@@ -40,8 +39,8 @@ length3 = 0.3; % meters
 mass3 = 0.5; % kg
 
 % Define inertial properties of the connecting rod
-Jxx = 0.0004;
-Jyy = 0.004;
+Jxx = 0.004;
+Jyy = 0.0004;
 Jzz = 0.004;
 JMatrix3 = zeros(3,3);
 JMatrix3(1,1) = Jxx;
@@ -68,8 +67,8 @@ isGround4 = 0;
 sys.addBody(4, 'block', isGround4, mass4, length4, JMatrix4, gravityDirection);
 
 %% Define important points and vectors in the system
-sys.addPoint(2, [0 0.04 0]', 'B');
-sys.addPoint(2, [0 -0.04 0]', 'revJoint');
+sys.addPoint(2, [0 0.08 0]', 'B');
+sys.addPoint(2, [0 0 0]', 'revJoint');
 sys.addPoint(3, [0.15 0 0]', 'C');
 sys.addPoint(3, [-0.15 0 0]', 'B');
 sys.addPoint(4, [0.0173/2 0 0]','D');
@@ -79,7 +78,7 @@ sys.addPoint(4, [-0.0173/2 0 0]','-D');
 a1.body1 = 1;
 a1.body2 = 2;
 a1.pointOnBody1 = [0 0.1 0.12]';
-a1.pointOnBody2 = [0 -0.04 0]';
+a1.pointOnBody2 = [0 0 0]';
 a1.vector1OnBody1 = [0 1 0]';
 a1.vector2OnBody1 = [0 0 1]';
 a1.vectorOnBody2 = [1 0 0]';
@@ -90,7 +89,7 @@ sys.addJoint('revolute',a1);
 %% Define spherical joint between connector and crank
 a2.body1 = 2;
 a2.body2 = 3;
-a2.pointOnBody1 = [0.0 0.04 0.0]';
+a2.pointOnBody1 = [0.0 0.08 0.0]';
 a2.pointOnBody2 = [-0.15 0.0 0.0]';
 a2.constraintName = 'Spherical joint b/w connector and crank';
 
@@ -108,18 +107,6 @@ a3.vector3OnBody2 = [0 0 1]';
 a3.constraintName = 'Rev-cylindrical joint b/w connector and slider';
 
 sys.addJoint('revolute-cylindrical',a3);
-
-% a3.body1 = 3;
-% a3.body2 = 1;
-% a3.pointOnBody1 = [0.15 0 0]';
-% a3.pointOnBody2 = [2 0 0]';
-% a3.vectorOnBody1 = [0 1 0]';
-% a3.vector1OnBody2 = [1 0 0]';
-% a3.vector2OnBody2 = [0 1 0]';
-% a3.vector3OnBody2 = [0 0 1]';
-% a3.constraintName = 'Rev-cylindrical joint b/w connector and ground';
-% 
-% sys.addJoint('revolute-cylindrical',a3);
 
 %% Define translation joint between slider and ground
 a4.body1 = 1;
@@ -148,28 +135,23 @@ sys.addBasicConstraint(isKinematic,'d',a5);
 
 
 %% Add driving constraint to model
-% DP1 constraint between -Z and y'
-% a6.bodyJ = 1;
-% a6.bodyI = 2;
-% a6.aBarJ = [0 1 0]';
-% a6.aBarI = [0 1 0]';
-% a6.ft = @(t)cos(-2*pi*t + pi/2 + 0.0001);
-% a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2 + 0.0001));
-% a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2 + 0.0001));
-% a6.constraintName = 'DP1 driving constraint';
-% isKinematic = 0;
-% sys.addBasicConstraint(isKinematic,'dp1',a6);
+a6.bodyJ = 1;
+a6.bodyI = 2;
+a6.aBarJ = [0 1 0]';
+a6.aBarI = [0 1 0]';
+a6.ft = @(t)cos(-2*pi*t + pi/2 + 0.0001);
+a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2 + 0.0001));
+a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2 + 0.0001));
+a6.constraintName = 'DP1 driving constraint';
+isKinematic = 0;
+sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Set initial conditions of each body
-% if exist('sliderCrankMechanismDynamicsAnalysis.mat')
-%     load('sliderCrankMechanismDynamicsAnalysis.mat')
-% else
 r1Initial = zeros(3,1); % Ground
 r2Initial = [0.0; 0.1; 0.12]; % Crank
 r3Initial = [0.1; 0.05; 0.1]; % Connector
 r4Initial = [0.2; 0.0; 0.0]; % Slider.
 rInitial = [r1Initial; r2Initial; r3Initial; r4Initial];
-% rInitial = [r1Initial; r2Initial; r3Initial];
 
 % Initial orientation
 % Ground
@@ -192,19 +174,15 @@ assemblyAnalysisFlag = 1;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
  
 % Initial velocities. Initial velocity known for crank.
-known = 2;
-knownInitialRDot = [0; -0.04*2*pi; 0];
-knownInitialOmegaBar = [2*pi; 0; 0];
-knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
-
-sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
+% known = 2;
+% knownInitialRDot = [0; 0; 0];
+% knownInitialOmegaBar = [2*pi; 0; 0];
+% knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
+% 
+% sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
 
 % Use the next command if you are prescribing a driving constraint.
-% sys.computeAndSetInitialVelocities([], [], []);
-
-
-%     save('sliderCrankMechanismDynamicsAnalysis.mat','sys');
-% end
+sys.computeAndSetInitialVelocities([], [], []);
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -217,11 +195,10 @@ if 1
     timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
+    velocityConstraintViolationFlag = 0;
     method = 'quasiNewton';
     tic;
-    %     sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    %     sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag);
+    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     analysisTime = toc;
     save('sliderCrankMechanismDynamicsAnalysis.mat','sys');
 else
@@ -240,40 +217,44 @@ sliderAccel = sys.myBodies{4}.myRDDotTotal;
 time = sys.myBodies{4}.myTimeTotal;
 
 figure
-subplot(3,1,1)
 hold on
-plot(time,sliderPosition(1,:))
-plot(time,sliderPosition(2,:))
-plot(time,sliderPosition(3,:))
+plot(time,sliderPosition(1,:),'LineWidth',2)
+plot(time,sliderPosition(2,:),'LineWidth',2)
+plot(time,sliderPosition(3,:),'LineWidth',2)
 legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Position (m)')
-title('Slider')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Position (m)','FontSize',16)
+set(gca,'FontSize',12);
+axis([0 1 0 0.3])
+% title('Slider')
 hold off
 
 
-subplot(3,1,2)
+figure
 hold on
-plot(time,sliderVelocity(1,:))
-plot(time,sliderVelocity(2,:))
-plot(time,sliderVelocity(3,:))
+plot(time,sliderVelocity(1,:),'LineWidth',2)
+plot(time,sliderVelocity(2,:),'LineWidth',2)
+plot(time,sliderVelocity(3,:),'LineWidth',2)
 legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
-title('Slider')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Velocity (m/s)','FontSize',16)
+axis([0 1 -0.6 0.6])
+set(gca,'FontSize',12);
+% title('Slider')
 hold off
 
 
-subplot(3,1,3)
+figure
 hold on
-plot(time,sliderAccel(1,:))
-plot(time,sliderAccel(2,:))
-plot(time,sliderAccel(3,:))
-axis([0 1 -3 5])
+plot(time,sliderAccel(1,:),'LineWidth',2)
+plot(time,sliderAccel(2,:),'LineWidth',2)
+plot(time,sliderAccel(3,:),'LineWidth',2)
+axis([0 1 -3 13])
 legend('x','y','z')
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
-title('Slider')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Acceleration (m/s^2)','FontSize',16)
+set(gca,'FontSize',12);
+% title('Slider')
 hold off
 
 %% Plot the position of point B versus time
@@ -310,25 +291,14 @@ torqueDriving = torque((3*DP1const-2):3*DP1const,:);
 
 figure
 hold on
-plot(time,torqueDriving(1,:))
-plot(time,torqueDriving(2,:))
-plot(time,torqueDriving(3,:));
-xlabel('Time (sec)')
-ylabel('Torque (N*m)')
+plot(time,torqueDriving(1,:),'LineWidth',2)
+plot(time,torqueDriving(2,:),'LineWidth',2)
+plot(time,torqueDriving(3,:),'LineWidth',2);
+xlabel('Time (sec)','FontSize',16)
+ylabel('Torque (Nm)','FontSize',16)
 axis([0 1 -1 1]);
 % h2.Color = 'g';
-legend('TorqueX','TorqueY','TorqueZ')
-title('Torque Due to DP1 Driving Constraint')
+legend('TorqueX','TorqueY','TorqueZ','FontSize',16)
+set(gca,'FontSize',12);
+title('Torque Due to Driving Constraint')
 
-% figure
-% hold on
-% plot(time,torqueDriving(1,:))
-% plot(time,torqueDriving(2,:))
-% [ax, h1, h2] = plotyy(time,torqueDriving(3,:),time,theta);
-% ax(1).YLim = [-250 250];
-% xlabel('Time (sec)')
-% ylabel(ax(1),'Torque (N*m)')
-% ylabel(ax(2),'Theta (rad)')
-% % h2.Color = 'g';
-% legend('TorqueX','TorqueY','TorqueZ','Theta')
-% saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')

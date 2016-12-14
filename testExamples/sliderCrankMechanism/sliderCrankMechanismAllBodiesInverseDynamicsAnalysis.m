@@ -1,5 +1,5 @@
 %% sliderCrankMechanism.m
-% Taken from ch. 12.2 section Edward J. Haug: Computer Aided Kinematics and Dynamics of
+% Taken from ch. 12.2 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
 % Mechanical Systems (Allyn and Bacon, 1989)
 % Used to test the combinaton of a spherical, revolute-cylindrical,
 % revolute, and translation joint.
@@ -90,7 +90,7 @@ sys.addJoint('revolute',a1);
 a2.body1 = 2;
 a2.body2 = 3;
 a2.pointOnBody1 = [0.0 0.08 0.0]';
-a2.pointOnBody2 = [-0.15 0.0 0.0]';
+a2.pointOnBody2 = [-0.15 0.0 0.0]';  
 a2.constraintName = 'Spherical joint b/w connector and crank';
 
 sys.addJoint('spherical',a2);
@@ -125,13 +125,26 @@ sys.addJoint('translational',a4);
 a5.bodyI = 3;
 a5.bodyJ = 4;
 a5.sBarIP = [0.15 0 0]';
-a5.sBarJQ = [1 0 0]';
-a5.ft = @(t)1;
+a5.sBarJQ = [0 0 0]';
+a5.ft = @(t)0;
 a5.ftDot =  @(t)0;
 a5.ftDDot =  @(t)0;
 a5.constraintName = 'Distance constraint b/w connector and slider';
 isKinematic = 1;
 sys.addBasicConstraint(isKinematic,'d',a5);
+
+%% Add driving constraint to model
+% DP1 constraint between -Z and y'
+a6.bodyJ = 1;
+a6.bodyI = 2;
+a6.aBarJ = [0 1 0]';
+a6.aBarI = [0 1 0]';
+a6.ft = @(t)cos(-2*pi*t + pi/2 + 0.0001);
+a6.ftDot = @(t)(-2*pi*sin(2*pi*t - pi/2 + 0.0001));
+a6.ftDDot = @(t)(-4*pi^2*cos(2*pi*t - pi/2 + 0.0001));
+a6.constraintName = 'DP1 driving constraint';
+isKinematic = 0;
+sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Set initial conditions of each body
 r1Initial = zeros(3,1); % Ground
@@ -158,17 +171,8 @@ pInitial = [p1; p2; p3; p4];
 t = 0;
 assemblyAnalysisFlag = 1;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
- 
-% Initial velocities. Initial velocity known for crank.
-known = 2;
-knownInitialRDot = [0; 0; 0];
-knownInitialOmegaBar = [6; 0; 0];
-knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
 
-sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
-
-% Use the next command if you are prescribing a driving constraint.
-% sys.computeAndSetInitialVelocities([], [], []);
+% Initial velocities. Not needed for inverse dynamics analysis.
 
 %% Plot starting configuration of system
 sys.plot(1);
@@ -181,17 +185,16 @@ if 1
     timeStep = 10^-3;
     order = 2;
     displayFlag = 1;
-    velConstViolFlag = 0;
     method = 'quasiNewton';
     tic;
-    sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velConstViolFlag);
+    sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     analysisTime = toc;
-    save('sliderCrankMechanismDynamicsAnalysisNoDrivingConst.mat','sys');
+    save('sliderCrankMechanismInverseDynamics.mat','sys');
 else
-    load('sliderCrankMechanismDynamicsAnalysisNoDrivingConst.mat')
+    load('sliderCrankMechanismInverseDynamics.mat')
 end
 
-disp(['Analysis for sliderCrankMechanismDynamicsAnalysisNoDrivingConst took ' num2str(analysisTime) ' seconds.'])
+disp(['Analysis for sliderCrankMechanismInverseDynamics took ' num2str(analysisTime) ' seconds.'])
 
 %% Animate results
 plot.animateSystem(sys,[90,0])
@@ -203,44 +206,39 @@ sliderAccel = sys.myBodies{4}.myRDDotTotal;
 time = sys.myBodies{4}.myTimeTotal;
 
 figure
+subplot(3,1,1)
 hold on
-plot(time,sliderPosition(1,:),'LineWidth',2)
-plot(time,sliderPosition(2,:),'LineWidth',2)
-plot(time,sliderPosition(3,:),'LineWidth',2)
+plot(time,sliderPosition(1,:))
+plot(time,sliderPosition(2,:))
+plot(time,sliderPosition(3,:))
 legend('x','y','z')
-xlabel('Time (sec)','FontSize',16)
-ylabel('Position (m)','FontSize',16)
-set(gca,'FontSize',12);
-axis([0 1 0.15 0.31])
-% title('Slider')
+xlabel('Time (sec)')
+ylabel('Position (m)')
+title('Slider')
 hold off
 
 
-figure
+subplot(3,1,2)
 hold on
-plot(time,sliderVelocity(1,:),'LineWidth',2)
-plot(time,sliderVelocity(2,:),'LineWidth',2)
-plot(time,sliderVelocity(3,:),'LineWidth',2)
+plot(time,sliderVelocity(1,:))
+plot(time,sliderVelocity(2,:))
+plot(time,sliderVelocity(3,:))
 legend('x','y','z')
-xlabel('Time (sec)','FontSize',16)
-ylabel('Velocity (m/s)','FontSize',16)
-axis([0 1 -1 1])
-set(gca,'FontSize',12);
-% title('Slider')
+xlabel('Time (sec)')
+ylabel('Velocity (m/s)')
+title('Slider')
 hold off
 
 
-figure
+subplot(3,1,3)
 hold on
-plot(time,sliderAccel(1,:),'LineWidth',2)
-plot(time,sliderAccel(2,:),'LineWidth',2)
-plot(time,sliderAccel(3,:),'LineWidth',2)
-axis([0 1 -30 40])
+plot(time,sliderAccel(1,:))
+plot(time,sliderAccel(2,:))
+plot(time,sliderAccel(3,:))
 legend('x','y','z')
-xlabel('Time (sec)','FontSize',16)
-ylabel('Acceleration (m/s^2)','FontSize',16)
-set(gca,'FontSize',12);
-% title('Slider')
+xlabel('Time (sec)')
+ylabel('Acceleration (m/s^2)')
+title('Slider')
 hold off
 
 %% Plot the position of point B versus time
@@ -260,5 +258,63 @@ plot(time,pointBPosition(1,:));
 plot(time,pointBPosition(2,:));
 plot(time,pointBPosition(3,:));
 legend('x','y','z')
-title('Position of tip of crank')
 hold off
+
+%% Plot the position of point C versus time
+barOrientation = sys.myBodies{3}.myPTotal;
+barPosition = sys.myBodies{3}.myRTotal;
+time = sys.myBodies{3}.myTimeTotal;
+pointCPosition = zeros(3,length(time));
+sC = [0.15 0.0 0]';
+for iT = 1:length(time)
+    A = simEngine3DUtilities.p2A(barOrientation(:,iT));
+    pointCPosition(:,iT) = barPosition(:,iT) + A*sC;
+end
+
+figure
+hold on
+plot(time,pointCPosition(1,:));
+plot(time,pointCPosition(2,:));
+plot(time,pointCPosition(3,:));
+legend('x','y','z')
+title('Point C Position')
+hold off
+
+
+%% Display torque at the revolute joint 
+% Extract torque for body 2 due to all constraints and time
+torque = sys.myBodies{2}.myConstraintTorquesOmegaTotal;
+time = sys.myBodies{2}.myTimeTotal;
+
+% Compute theta over time.
+theta = 2*pi*time + pi/2;
+
+% Extract torque due to DP1 driving constraint.
+DP1const = 18;
+torqueDriving = torque((3*DP1const-2):3*DP1const,:);
+
+figure
+hold on
+plot(time,torqueDriving(1,:))
+plot(time,torqueDriving(2,:))
+plot(time,torqueDriving(3,:));
+xlabel('Time (sec)')
+ylabel('Torque (N*m)')
+% axis([0 1 -1 1]);
+% h2.Color = 'g';
+legend('TorqueX','TorqueY','TorqueZ')
+title('Torque Due to DP1 Driving Constraint in Pendulum Reference Frame')
+saveas(gcf,'A8P1_TorqueVsTime.png')
+
+figure
+hold on
+plot(time,torqueDriving(1,:))
+plot(time,torqueDriving(2,:))
+[ax, h1, h2] = plotyy(time,torqueDriving(3,:),time,theta);
+ax(1).YLim = [-250 250];
+xlabel('Time (sec)')
+ylabel(ax(1),'Torque (N*m)')
+ylabel(ax(2),'Theta (rad)')
+% h2.Color = 'g';
+legend('TorqueX','TorqueY','TorqueZ','Theta')
+saveas(gcf,'A8P1_TorqueAndThetaVsTime.png')

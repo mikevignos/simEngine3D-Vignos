@@ -90,18 +90,6 @@ a.constraintName = 'Translational Joint';
 
 sys.addJoint('translational',a);
 
-%% Add driving constraint to model
-% DP1 constraint between -Z and y'
-% a6.bodyJ = 1;
-% a6.bodyI = 2;
-% a6.aBarJ = [0 0 -1]';
-% a6.aBarI = [0 1 0]';
-% a6.ft = @(t)cos((pi*cos(2*t))/4 + pi/2);
-% a6.ftDot = @(t)((pi*sin(2*t)*sin((pi*cos(2*t))/4 + pi/2))/2);
-% a6.ftDDot = @(t)(pi*cos(2*t)*sin((pi*cos(2*t))/4 + pi/2) - (pi^2*sin(2*t)^2*cos((pi*cos(2*t))/4 + pi/2))/4);
-% a6.constraintName = 'DP1 driving constraint';
-% isKinematic = 0;
-% sys.addBasicConstraint(isKinematic,'dp1',a6);
 
 %% Perform dynamics analysis
 if 1

@@ -1707,7 +1707,7 @@ classdef multibodySystem < handle
             phiK = obj.myPhiK;
             phiD = obj.myPhiD;
             phiKD = [phiK; phiD];
-            if (abs(norm(phiKD)) > 10^-3)
+            if (abs(norm(phiKD)) > 10^-2)
                 error('Constraint matrix not equal to zero in initial pose.');
                 phiFullFlag = 0;
             else
@@ -1792,7 +1792,7 @@ classdef multibodySystem < handle
             maxIter = 50;
             opt = optimoptions('fminunc');
             opt.GradObj = 'on';
-            tol = 10^-8;
+            tol = 10^-3;
             
             % Extract initial values
             if (obj.myBodyIsGround == 1)
