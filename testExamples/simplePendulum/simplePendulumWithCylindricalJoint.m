@@ -81,7 +81,6 @@ sys.addJoint('cylindrical',a1);
 %% Add force to point mass in z-direction
 sys.addForce(2,[0 0 1]', [0 0 0]', 'Force');
 
-
 %% Perform analysis
 if 1
     timeStart = 0;
@@ -91,16 +90,14 @@ if 1
     displayFlag = 1;
     method = 'quasiNewton';
     tic;
-%         sys.inverseDynamicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
-%         sys.kinematicsAnalysis(timeStart, timeEnd, timeStep, displayFlag);
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, 0);
     analysisTime = toc;
-    save('simplePendulum.mat','sys');
+    save('simplePendulumWithCylindricalJoint.mat','sys');
 else
-    load('simplePendulum.mat')
+    load('simplePendulumWithCylindricalJoint.mat')
 end
 
-disp(['Dynamics Analysis for simplePendulum took ' num2str(analysisTime) ' seconds.'])
+disp(['Dynamics Analysis for simplePendulumWithCylindricalJoint took ' num2str(analysisTime) ' seconds.'])
 
 %% Plot the position of point mass versus time
 massPosition = sys.myBodies{2}.myRTotal;
@@ -128,18 +125,21 @@ time = sys.myBodies{2}.myTimeTotal;
 
 figure
 subplot(3,1,1)
-plot(time,massPosition(3,:));
-ylabel('Position (m)')
-title('Position, Velocity, and Acceleration of Mass in Z-Direction')
+plot(time,massPosition(3,:),'LineWidth',2);
+ylabel('Position (m)','FontSize',14)
+set(gca,'FontSize',10)
+title('Position, Velocity, and Acceleration of Mass in Z-Direction','FontSize',16)
 
 subplot(3,1,2)
-plot(time,massVel(3,:));
-ylabel('Velocity (m/s)')
+plot(time,massVel(3,:),'LineWidth',2);
+ylabel('Velocity (m/s)','FontSize',14)
+set(gca,'FontSize',10)
 
 subplot(3,1,3)
-plot(time,massAccel(3,:));
-ylabel('Acceleration (m/s^2)')
-xlabel('Time (sec)')
+plot(time,massAccel(3,:),'LineWidth',2);
+ylabel('Acceleration (m/s^2)','FontSize',14)
+xlabel('Time (sec)','FontSize',14)
+set(gca,'FontSize',10)
 hold off
 
 

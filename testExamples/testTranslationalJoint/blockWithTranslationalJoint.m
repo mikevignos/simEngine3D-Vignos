@@ -116,37 +116,42 @@ blockAccel = sys.myBodies{2}.myRDDotTotal;
 time = sys.myBodies{2}.myTimeTotal;
 
 figure
+subplot(3,1,1)
 hold on
-plot(time,blockPosition(1,:))
-plot(time,blockPosition(2,:))
-plot(time,blockPosition(3,:));
-xlabel('Time (sec)')
-ylabel('Position (m)')
+plot(time,blockPosition(1,:),'LineWidth',2)
+plot(time,blockPosition(2,:),'LineWidth',2)
+plot(time,blockPosition(3,:),'LineWidth',2);
+% xlabel('Time (sec)')
+ylabel('Position (m)','FontSize',12)
 % h2.Color = 'g';
 legend('x','y','z')
-title('Block Position')
+title('Position, Velocity, and Acceleration of Block','FontSize',14)
+set(gca,'FontSize',10);
 
-figure
+subplot(3,1,2)
 hold on
-plot(time,blockVelocity(1,:))
-plot(time,blockVelocity(2,:))
-plot(time,blockVelocity(3,:));
-xlabel('Time (sec)')
-ylabel('Velocity (m/s)')
+plot(time,blockVelocity(1,:),'LineWidth',2)
+plot(time,blockVelocity(2,:),'LineWidth',2)
+plot(time,blockVelocity(3,:),'LineWidth',2);
+% xlabel('Time (sec)')
+ylabel('Velocity (m/s)','FontSize',12)
 % h2.Color = 'g';
-legend('x','y','z')
-title('Block Velocity')
+% legend('x','y','z')
+% title('Block Velocity')
+set(gca,'FontSize',10);
 
-figure
+
+subplot(3,1,3)
 hold on
-plot(time,blockAccel(1,:))
-plot(time,blockAccel(2,:))
-plot(time,blockAccel(3,:));
-xlabel('Time (sec)')
-ylabel('Acceleration (m/s^2)')
+plot(time,blockAccel(1,:),'LineWidth',2)
+plot(time,blockAccel(2,:),'LineWidth',2)
+plot(time,blockAccel(3,:),'LineWidth',2);
+xlabel('Time (sec)','FontSize',12)
+ylabel('Acceleration (m/s^2)','FontSize',12)
 % h2.Color = 'g';
-legend('x','y','z')
-title('Block Acceleration')
+% legend('x','y','z')
+% title('Block Acceleration')
+set(gca,'FontSize',10);
 
 %% Animate the system
 plot.animateSystem(sys,[89 -90])
