@@ -108,6 +108,9 @@ end
 
 disp(['Dynamics Analysis for A8P1 took ' num2str(dynamicsAnalysisTime) ' seconds.'])
 
+%% Animate the system
+plot.animateSystem(sys,[-90 -90])
+
 %% Display position, velocity, and acceleration of the block
 % Extract torque for body 2 due to all constraints and time
 blockPosition = sys.myBodies{2}.myRTotal;
@@ -153,5 +156,4 @@ ylabel('Acceleration (m/s^2)','FontSize',12)
 % title('Block Acceleration')
 set(gca,'FontSize',10);
 
-%% Animate the system
-plot.animateSystem(sys,[89 -90])
+

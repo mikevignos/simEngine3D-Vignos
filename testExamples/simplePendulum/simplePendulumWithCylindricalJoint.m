@@ -99,6 +99,9 @@ end
 
 disp(['Dynamics Analysis for simplePendulumWithCylindricalJoint took ' num2str(analysisTime) ' seconds.'])
 
+%% Animate system
+plot.animateSystem(sys, [0 90]);
+
 %% Plot the position of point mass versus time
 massPosition = sys.myBodies{2}.myRTotal;
 time = sys.myBodies{2}.myTimeTotal;

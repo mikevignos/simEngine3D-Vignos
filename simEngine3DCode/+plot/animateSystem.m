@@ -114,6 +114,7 @@ for i = 1:length(time) % find max and min positions over time
     mins = min([mins; R]);
 end
 border = 0.5*max((maxs - mins));
+% border = 1;
 axisWindow = [mins(1)-border maxs(1)+border mins(2)-border maxs(2)+border mins(3)-border maxs(3)+border];
 
 % set frame properties

@@ -109,7 +109,7 @@ end
 disp(['Dynamics Analysis for A8P1 took ' num2str(dynamicsAnalysisTime) ' seconds.'])
 
 %% Animate system
-plot.animateSystem(sys);
+plot.animateSystem(sys, [0 90]);
 
 %% Plot position of mass versus time
 position = sys.myBodies{2}.myRTotal;
