@@ -1,7 +1,7 @@
 function [ torque ] = Ts( sys, time )
 %Function that will be used to compute the torque to apply to the flyball
 %governor.
-C = 7500;
+C = 12500;
 
 % Extract the current y-position of the collar
 yLoc = sys.myBodies{5}.myR(2);

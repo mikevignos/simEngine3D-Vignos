@@ -119,9 +119,11 @@ a4.constraintName = 'Revolute joint b/w 2nd link and ground';
 
 sys.addJoint('revolute',a4);
 
-
-%% Add torque to the wheel
-sys.addTorque(2, [10 0 0]', 'Torque applied to wheel');
+%% Add torque
+bodyNumber = 2;
+torque = [10 0 0]';
+torqueName = 'Torque applied to body2';
+sys.addTorque(bodyNumber, torque, torqueName);
 
 %% Set initial conditions of each body
 r1Initial = zeros(3,1); % Ground
@@ -164,7 +166,7 @@ view([90 0])
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 2;
+    timeEnd = 10;
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;
@@ -173,12 +175,12 @@ if 1
     tic;
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velConstViolFlag);
     analysisTime = toc;
-    save('uniqueFourBarMechanism.mat','sys');
+    save('uniqueFourBarMechanismNoDrivingConstraint.mat','sys');
 else
-    load('uniqueFourBarMechanism.mat')
+    load('uniqueFourBarMechanismNoDrivingConstraint.mat')
 end
 
-disp(['Inverse Dynamics Analysis for uniqueFourBarMechanism took ' num2str(analysisTime) ' seconds.'])
+disp(['Inverse Dynamics Analysis for uniqueFourBarMechanismNoDrivingConstraint took ' num2str(analysisTime) ' seconds.'])
 
 %% Animate results
 plot.animateSystem(sys,[90,0])

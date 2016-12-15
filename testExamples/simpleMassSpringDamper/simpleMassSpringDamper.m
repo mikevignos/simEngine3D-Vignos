@@ -1,8 +1,6 @@
 %% pendulumWithRevoluteJoint.m
 % File for dynamic simulation of simple pendulum.
-% Compared to plot in:
-% http://rotorlab.tamu.edu/Dynamics_and_Vibrations/Other%20docs/MATLAB_Handbook.pdf
-% on page 14 for validation.
+% Compared to solution of second order ODE solved using ODE45 in MATLAB
 clear; close all; clc;
 
 %% Create instance of multibody system
@@ -114,7 +112,6 @@ disp(['Dynamics Analysis for A8P1 took ' num2str(dynamicsAnalysisTime) ' seconds
 plot.animateSystem(sys);
 
 %% Plot position of mass versus time
-% Extract torque for body 2 due to all constraints and time
 position = sys.myBodies{2}.myRTotal;
 time = sys.myBodies{2}.myTimeTotal;
 
@@ -127,6 +124,27 @@ xlabel('Time (sec)')
 ylabel('Position (m)')
 legend('x','y','z')
 title('Position of mass')
+hold off
+
+%% Compare to analytical solution
+% Analytical solution
+tspan=[0 4];
+y0=[0.02;0];
+[t,y]=ode45('unforced1',tspan,y0);
+
+
+position = sys.myBodies{2}.myRTotal;
+time = sys.myBodies{2}.myTimeTotal;
+
+figure
+hold on
+plot(time,position(1,:),'LineWidth',2);
+plot(t(1:2:end),y((1:2:end),1),'ks');
+xlabel('Time (sec)','FontSize',16)
+ylabel('Position (m)','FontSize',16)
+legend('Simulation','Analytical Solution')
+% title('Position of mass','FontSize',16)
+set(gca,'FontSize',12);
 hold off
 
 

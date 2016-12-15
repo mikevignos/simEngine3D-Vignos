@@ -166,11 +166,12 @@ if 1
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     analysisTime = toc;
     save('NfourBarMechanismDynamicsAnalysis.mat','sys');
+    disp(['Dynamics Analysis for NfourBarMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
+
 else
     load('NfourBarMechanismDynamicsAnalysis.mat')
 end
 
-disp(['Dynamics Analysis for NfourBarMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
 
 %% Animate the results
 plot.animateSystem(sys,[0,90])
@@ -194,6 +195,32 @@ plot(time,pointBPosition(1,:),'r');
 plot(time,pointBPosition(2,:),'b');
 plot(time,pointBPosition(3,:),'g');
 legend('x','y','z');
+xlabel('Time (sec)');
+ylabel('Displacement (m)');
+hold off
+
+%% Plot against previously validated solution
+linkOrientation = sys.myBodies{2}.myPTotal;
+linkPosition = sys.myBodies{2}.myRTotal;
+time = sys.myBodies{2}.myTimeTotal;
+pointBPosition = zeros(3,length(time));
+
+
+sB = [0 0.5 0]';
+for iT = 1:length(time)
+    A = simEngine3DUtilities.p2A(linkOrientation(:,iT));
+    pointBPosition(:,iT) = linkPosition(:,iT) + A*sB;
+end
+
+data = dlmread('A02_solution_data.txt','\t',453,0);
+
+figure
+hold on
+plot(time,pointBPosition(1,:),'r');
+plot(time,pointBPosition(2,:),'b');
+plot(data(:,1),data(:,2),'rs');
+plot(data(:,1),data(:,3),'bs');
+legend('SimulationX','SimulationY','ValidatedX','ValidatedY');
 xlabel('Time (sec)');
 ylabel('Displacement (m)');
 hold off

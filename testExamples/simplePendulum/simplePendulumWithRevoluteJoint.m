@@ -30,6 +30,9 @@ JMatrix2(3,3) = Jzz;
 isGround2 = 0;
 sys.addBody(2, 'point', isGround2, mass2, length2, JMatrix2, gravityDirection);
 
+%% Add points
+sys.addPoint(2,[1 0 0]','P')
+
 %% Define revolute joint between ground and point mass
 a1.body1 = 1;
 a1.body2 = 2;
@@ -68,7 +71,7 @@ sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
 sys.plot(1);
 
 %% Perform analysis
-if 1
+if 0
     timeStart = 0;
     timeEnd = 20.0;
     timeStep = 10^-2;

@@ -39,8 +39,6 @@ sys.addPoint(1, [0 0 0]', 'O');
 sys.addPoint(2, [-2 0 0]', 'Q');
 
 %% Set initial conditions of each body
-% In a simulation, the state of each body will be updated at each time
-% step. Each column represents a different body.
 % Initial position
 r1Initial = zeros(3,1);
 r2Initial = [0; sqrt(2); -sqrt(2)];
@@ -48,11 +46,13 @@ rInitial = [r1Initial; r2Initial];
 
 % Initial orientation
 p1 = [1 0 0 0]'; 
+
 s2 = sqrt(2)/2;
 A2 = [0 0 1;
     s2 s2 0;
     -s2 s2 0];
 p2 = simEngine3DUtilities.A2p(A2);
+
 pInitial = [p1; p2];
 
 assemblyAnalysisFlag = 1;

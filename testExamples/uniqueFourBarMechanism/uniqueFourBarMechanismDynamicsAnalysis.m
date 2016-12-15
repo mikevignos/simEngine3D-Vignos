@@ -169,7 +169,7 @@ view([90 0])
 %% Perform analysis
 if 1
     timeStart = 0;
-    timeEnd = 2.5;
+    timeEnd = 10;
     timeStep = 10^-2;
     order = 2;
     displayFlag = 1;

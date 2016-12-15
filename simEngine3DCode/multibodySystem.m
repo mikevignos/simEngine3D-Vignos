@@ -421,8 +421,7 @@ classdef multibodySystem < handle
                     unknownCount = unknownCount + 1;
                 end
             end
-            
-            
+
             % Add in the ground if it is in the system
             if (obj.myBodyIsGround == 1)
                 rDotTemp = velRTotal;

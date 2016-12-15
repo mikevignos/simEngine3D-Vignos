@@ -60,7 +60,13 @@ rDotInitial = zeros(6,1);
 pDotInitial = zeros(8,1);
 
 t = 0;
+
 sys.updateSystemState( rInitial, rDotInitial, [], pInitial, pDotInitial, [], t);
+
+
+
+t = 0;
+sys.updateSystemState( [], rDotInitial, [], [], pDotInitial, [], t);
 
 %% Plot starting configuration of system
 % sys.plot(1);

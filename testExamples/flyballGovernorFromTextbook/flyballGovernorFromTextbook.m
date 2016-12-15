@@ -1,5 +1,5 @@
 %% flyballGovernorFromTextbook.m
-% Taken from ch. 12.6 section Edward J. Haug: Computer Aided Kinematics and Dynamics of 
+% Taken from ch. 12.6 section Edward J. Haug: Computer Aided Kinematics and Dynamics of
 % Mechanical Systems (Allyn and Bacon, 1989)
 clear; close all; clc;
 
@@ -92,20 +92,23 @@ s1.name = 'Spring-Damper Element b/w body 2 and 5';
 sys.addTSDA(s1);
 
 %% Add a variable torques to apply to the axis.
-if 1
-    torqueFunction1 = @Ts;
-    torqueFunction2 = @Te;
-    sys.addVariableTorque(2, torqueFunction1, 'Ts');
-    sys.addVariableTorque(2, torqueFunction2, 'Te');
-end
+bodyNumber = 2;
+torqueFunction = @Ts;
+torqueName = 'Ts';
+sys.addVariableTorque(bodyNumber, torqueFunction, torqueName);
+
+bodyNumber = 2;
+torqueFunction = @Te;
+torqueName = 'Te';
+sys.addVariableTorque(bodyNumber, torqueFunction, torqueName);
+
 
 %% Define important points and vectors in the system
 sys.addPoint(2, [0 -0.2 0]', 'base');
 sys.addPoint(2, [0 0 0]', 'top');
-% sys.addPoint(3, [0 0 -0.5]', 'base');
+sys.addPoint(3, [-0.16 0 0]', 'base');
 % sys.addPoint(3, [0 0 0.5]', 'top');
-% sys.addPoint(4, [0 0 -0.5]', 'base');
-% sys.addPoint(4, [0 0 0.5]', 'top');
+sys.addPoint(4, [0.16 0 0]', 'base');
 % sys.addPoint(5, [0.05 0 0]','connectionForTSDA1');
 % sys.addPoint(5, [-0.05 0 0]','connectionForTSDA2');
 
@@ -169,7 +172,7 @@ a3.vectorOnBody2 = [0 0 1]';
 a3.constraintName = 'Revolute Joint b/w right ball and Axis';
 
 sys.addJoint('revolute',a3);
-            
+
 %% Define revolute joint between axis and left rod
 %   body1 = first body in joint
 %   body2 = second body in joint
@@ -280,16 +283,18 @@ pInitial = [p1; p2; p3; p4; p5];
 t = 0;
 assemblyAnalysisFlag = 1;
 sys.setInitialPose( rInitial, pInitial, assemblyAnalysisFlag);
- 
+
 % Initial velocities. Initial velocity known for crank.
 known = 2;
 knownInitialRDot = [0; 0; 0];
 knownInitialOmegaBar = [0; 11.0174; 0];
 knownInitialPDot = simEngine3DUtilities.omegaBar2pDot(sys, known, knownInitialOmegaBar);
-
 sys.computeAndSetInitialVelocities(known, knownInitialRDot, knownInitialPDot);
 
 % Use the next command if you are prescribing a driving constraint.
+
+
+
 % sys.computeAndSetInitialVelocities([], [], []);
 
 
@@ -312,12 +317,13 @@ if 1
     tic;
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintFlag);
     analysisTime = toc;
-    save('flyballGovernorFromText_k1000_C7500.mat','sys');
+    save('flyballGovernorFromText_k1000_C12500.mat','sys');
+    disp(['Analysis for flyballGovernorFromText_k1000_C12500 took ' num2str(analysisTime) ' seconds.'])
 else
-    load('flyballGovernorFromText_k1000_C7500.mat')
+    load('flyballGovernorFromText_k1000_C12500.mat')
 end
 
-disp(['Analysis for flyballGovernorFromText_k1000_C7500 took ' num2str(analysisTime) ' seconds.'])
+
 
 %% Animate results
 plot.animateSystem(sys,[0 90])
@@ -332,14 +338,13 @@ time = sys.myBodies{5}.myTimeTotal;
 sliderPositionCM = sliderPosition*100;
 figure
 hold on
-plot(time,sliderPositionCM(1,:))
-plot(time,sliderPositionCM(2,:))
-plot(time,sliderPositionCM(3,:))
+plot(time,sliderPositionCM(2,:),'LineWidth',2)
 legend('x','y','z')
 axis([timeStart timeEnd 4.6 5.1])
-xlabel('Time (sec)')
-ylabel('Position (cm)')
-title('Slider Position')
+xlabel('Time (sec)','FontSize',16)
+ylabel('Position (cm)','FontSize',16)
+title('Slider Y-Position','FontSize',16)
+set(gca, 'FontSize',12);
 hold off
 
 % figure
@@ -353,8 +358,8 @@ hold off
 % ylabel('Position (m)')
 % title('Slider')
 % hold off
-% 
-% 
+%
+%
 % subplot(3,1,2)
 % hold on
 % plot(time,sliderVelocity(1,:))
@@ -365,8 +370,8 @@ hold off
 % ylabel('Velocity (m/s)')
 % title('Slider')
 % hold off
-% 
-% 
+%
+%
 % subplot(3,1,3)
 % hold on
 % plot(time,sliderAccel(1,:))
@@ -381,7 +386,7 @@ hold off
 
 
 %% Plot the angular velocity of the shaft versus time
-pForShaft = sys.myBodies{2}.myPTotal;
+pForShaftC7500 = sys.myBodies{2}.myPTotal;
 pDotForShaft = sys.myBodies{2}.myPDotTotal;
 time = sys.myBodies{2}.myTimeTotal;
 
@@ -389,7 +394,7 @@ time = sys.myBodies{2}.myTimeTotal;
 omegaBar = zeros(3,length(time));
 for iT = 1:length(time)
     % Compute the current G matrix for the body
-    p = pForShaft(:,iT);
+    p = pForShaftC7500(:,iT);
     e0 = p(1);
     e = p(2:4);
     eTilde = simEngine3DUtilities.skewSym(e);
@@ -412,3 +417,103 @@ xlabel('Time (sec)')
 ylabel('\omega (rad/sec)');
 legend('x','y','z')
 title('Angular velocity of shaft')
+
+%% Plotting of 3 different simulations
+if 1
+    sliderPositionC7500 = sysC7500.myBodies{5}.myRTotal*100;
+    timeC7500 = sysC7500.myBodies{5}.myTimeTotal;
+    
+    sliderPositionC12500 = sysC12500.myBodies{5}.myRTotal*100;
+    timeC12500 = sysC12500.myBodies{5}.myTimeTotal;
+    
+    sliderPositionC17500 = sysC17500.myBodies{5}.myRTotal*100;
+    timeC17500 = sysC17500.myBodies{5}.myTimeTotal;
+    
+    % Plot zoomed in version of slider position
+    figure
+    hold on
+    plot(timeC7500,sliderPositionC7500(2,:),'LineWidth',2)
+    plot(timeC12500,sliderPositionC12500(2,:),'LineWidth',2)
+    plot(timeC12500,sliderPositionC17500(2,:),'LineWidth',2)
+    legend('C = 7500','C = 12500','C = 17500')
+    axis([timeStart timeEnd 4.6 5.1])
+    xlabel('Time (sec)','FontSize',16)
+    ylabel('Position (cm)','FontSize',16)
+    title('Slider Y-Position','FontSize',16)
+    set(gca, 'FontSize',12);
+    hold off
+    
+    % Plot the angular velocity of the shaft versus time
+    pForShaftC7500 = sysC7500.myBodies{2}.myPTotal;
+    pDotForShaftC7500 = sysC7500.myBodies{2}.myPDotTotal;
+    timeC7500 = sysC7500.myBodies{2}.myTimeTotal;
+    
+    pForShaftC12500 = sysC12500.myBodies{2}.myPTotal;
+    pDotForShaftC12500 = sysC12500.myBodies{2}.myPDotTotal;
+    timeC12500 = sysC12500.myBodies{2}.myTimeTotal;
+    
+    pForShaftC17500 = sysC17500.myBodies{2}.myPTotal;
+    pDotForShaftC17500 = sysC17500.myBodies{2}.myPDotTotal;
+    timeC17500 = sysC17500.myBodies{2}.myTimeTotal;
+    
+    % Convert pDot to omegaBar
+    omegaBarC7500 = zeros(3,length(timeC7500));
+    for iT = 1:length(timeC7500)
+        % Compute the current G matrix for the body
+        p = pForShaftC7500(:,iT);
+        e0 = p(1);
+        e = p(2:4);
+        eTilde = simEngine3DUtilities.skewSym(e);
+        G2 = -eTilde + e0*eye(3,3);
+        G = [-e, G2];
+        
+        % Compute omageBar
+        pDot = pDotForShaftC7500(:,iT);
+        omegaBarC7500(:,iT) = 2*G*pDot;
+    end
+    
+    omegaBarC12500 = zeros(3,length(timeC12500));
+    for iT = 1:length(timeC12500)
+        % Compute the current G matrix for the body
+        p = pForShaftC12500(:,iT);
+        e0 = p(1);
+        e = p(2:4);
+        eTilde = simEngine3DUtilities.skewSym(e);
+        G2 = -eTilde + e0*eye(3,3);
+        G = [-e, G2];
+        
+        % Compute omageBar
+        pDot = pDotForShaftC12500(:,iT);
+        omegaBarC12500(:,iT) = 2*G*pDot;
+    end
+    
+    omegaBarC17500 = zeros(3,length(timeC17500));
+    for iT = 1:length(timeC17500)
+        % Compute the current G matrix for the body
+        p = pForShaftC17500(:,iT);
+        e0 = p(1);
+        e = p(2:4);
+        eTilde = simEngine3DUtilities.skewSym(e);
+        G2 = -eTilde + e0*eye(3,3);
+        G = [-e, G2];
+        
+        % Compute omageBar
+        pDot = pDotForShaftC17500(:,iT);
+        omegaBarC17500(:,iT) = 2*G*pDot;
+    end
+    
+    
+    % Plot omegaBar versus time
+    figure
+    hold on
+    plot(timeC7500,omegaBarC7500(2,:),'LineWidth',2);
+    plot(timeC12500,omegaBarC12500(2,:),'LineWidth',2);
+    plot(timeC17500,omegaBarC17500(2,:),'LineWidth',2);
+    axis([timeStart timeEnd 10.1 11.1])
+    xlabel('Time (sec)','FontSize',16)
+    ylabel('\omega (rad/sec)','FontSize',16);
+    legend('C = 7500','C = 12500','C = 17500')
+    set(gca, 'FontSize',12);
+    title('Angular Velocity of Shaft','FontSize',16)
+    
+end

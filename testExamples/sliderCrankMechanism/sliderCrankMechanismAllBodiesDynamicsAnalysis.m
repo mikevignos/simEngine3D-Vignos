@@ -201,11 +201,12 @@ if 1
     sys.dynamicsAnalysis(timeStart, timeEnd,timeStep, order, method, displayFlag, velocityConstraintViolationFlag);
     analysisTime = toc;
     save('sliderCrankMechanismDynamicsAnalysis.mat','sys');
+    disp(['Analysis for sliderCrankMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
+
 else
-    load('sliderCrankMechanismDynamicsAnalysis.mat')
+    load('sliderCrankMechanismDynamicsAnalysis.mat');
 end
 
-disp(['Analysis for sliderCrankMechanismDynamicsAnalysis took ' num2str(analysisTime) ' seconds.'])
 
 %% Animate results
 plot.animateSystem(sys,[90,0])
